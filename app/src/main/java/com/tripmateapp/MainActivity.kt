@@ -53,7 +53,7 @@ fun HelloWorldScreen(viewModel: MainViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = {
-            viewModel.saveMessage(inputText)
+            //viewModel.saveMessage(inputText)
             inputText = ""
         }) {
             Text("Guardar en Room")

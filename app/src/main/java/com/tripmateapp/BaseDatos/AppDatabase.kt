@@ -1,4 +1,5 @@
-package com.tripmateapp
+package com.tripmateapp.BaseDatos
+
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
