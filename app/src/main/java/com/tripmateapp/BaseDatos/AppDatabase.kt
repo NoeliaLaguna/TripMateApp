@@ -15,6 +15,8 @@ import com.tripmateapp.BaseDatos.Usuarios.UsuarioEntity
 import com.tripmateapp.BaseDatos.Viajes.ViajeDao
 import com.tripmateapp.BaseDatos.Viajes.ViajeEntity
 
+//merge a mi rama hecho
+
 @Database(
     entities = [
         UsuarioEntity::class,
