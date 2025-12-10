@@ -1,10 +1,12 @@
 package com.tripmateapp
 
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.tripmateapp.ui.theme.DestinosViewModel
 
 // ------------------------------
