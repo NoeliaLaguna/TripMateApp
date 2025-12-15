@@ -1,6 +1,7 @@
 package com.tripmateapp.BaseDatos.Destinos
 
 import androidx.room.*
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DestinoDao {
@@ -18,8 +19,13 @@ interface DestinoDao {
     suspend fun delete(destino: DestinoEntity)
 
     @Query("SELECT * FROM destinos")
-    suspend fun getAll(): List<DestinoEntity>
+    fun getAll(): Flow<List<DestinoEntity>>
 
+    // 🔍 Búsqueda por nombre (para searchDestinos del repository)
+    @Query("SELECT * FROM destinos WHERE nombre LIKE '%' || :query || '%'")
+    fun searchDestinos(query: String): Flow<List<DestinoEntity>>
+
+    // Si quieres mantener esto también como Flow
     @Query("SELECT * FROM destinos WHERE id = :id")
-    suspend fun getById(id: Int): DestinoEntity?
+    fun getById(id: Int): Flow<DestinoEntity?>
 }

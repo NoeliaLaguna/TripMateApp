@@ -1,6 +1,8 @@
 package com.tripmateapp.BaseDatos
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
@@ -47,6 +49,7 @@ import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
         LugarTuristicoEntity::class,
         ActividadEntity::class,
         ItinerarioDiaEntity::class
+        DestinoFavoritoEntity::class
 
     ],
     version = 1
