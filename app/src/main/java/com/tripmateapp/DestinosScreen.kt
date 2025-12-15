@@ -10,72 +10,48 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
-import com.tripmateapp.ui.theme.DestinosViewModel
+
 
 @Composable
 fun DestinosScreen(
-    viewModel: DestinosViewModel,
-    onDestinoSeleccionado: (Int) -> Unit   // Navegación al siguiente paso
+    destinoDao: DestinoDao,
+    onDestinoSeleccionado: (Int) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    var query by remember { mutableStateOf("") }
+
+    // 📌 Recogemos los destinos directamente del Flow del DAO
+    val destinos by destinoDao.getAll().collectAsState(initial = emptyList())
+
+    // Filtro por nombre
+    val destinosFiltrados = destinos.filter {
+        it.nombre.contains(query, ignoreCase = true)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // 🔍 Barra de búsqueda
-        SearchBar(
-            query = uiState.searchQuery,
-            onQueryChange = { viewModel.onSearchChanged(it) }
+        // 🔍 Barra búsqueda
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Buscar destino") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         )
 
-        // 📋 Contenido según estado
-        when {
-            uiState.isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            uiState.destinos.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No se encontraron destinos")
-                }
-            }
-
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
-                ) {
-                    items(uiState.destinos) { destino ->
-                        DestinoCard(
-                            destino = destino,
-                            onSelect = { onDestinoSeleccionado(destino.id) }
-                        )
-                    }
-                }
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(destinosFiltrados) { destino ->
+                DestinoCard(
+                    destino = destino,
+                    onSelect = { onDestinoSeleccionado(destino.id) }
+                )
             }
         }
     }
-}
-
-@Composable
-fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        label = { Text("Buscar destino…") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-    )
 }
 
 @Composable
@@ -85,33 +61,16 @@ fun DestinoCard(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clickable { onSelect() },
-        elevation = CardDefaults.cardElevation(4.dp)
+            .padding(10.dp)
+            .fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(6.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            Text(
-                text = destino.nombre,
-                style = MaterialTheme.typography.titleLarge
-            )
+            Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+            Text(destino.pais, style = MaterialTheme.typography.bodyMedium)
 
-            Text(
-                text = destino.pais,
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            destino.descripcion?.let {
-                Text(
-                    text = it,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             Button(
                 onClick = onSelect,
