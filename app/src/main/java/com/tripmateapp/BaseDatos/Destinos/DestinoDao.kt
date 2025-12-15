@@ -8,6 +8,9 @@ interface DestinoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(destino: DestinoEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(destinos: List<DestinoEntity>)
+
     @Update
     suspend fun update(destino: DestinoEntity)
 
