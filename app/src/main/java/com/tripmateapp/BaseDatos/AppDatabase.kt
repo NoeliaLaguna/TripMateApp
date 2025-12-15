@@ -1,6 +1,8 @@
 package com.tripmateapp.BaseDatos
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
@@ -34,4 +36,21 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transporteDao(): TransporteDao
     abstract fun itinerarioDao(): ItinerarioDao
     abstract fun viajeDao(): ViajeDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "TripmateDataBase"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
 }
