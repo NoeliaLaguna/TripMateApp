@@ -5,12 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.tripmateapp.BaseDatos.AppDatabase
-import com.tripmateapp.repositorios.DestinoRepository
-import com.tripmateapp.ui.theme.DestinosViewModel
+import com.tripmateapp.BaseDatos.DatabaseProvider
 
 // ------------------------------
 // RUTAS DE LA APP
@@ -33,16 +30,9 @@ fun Navegacion() {
 
     // ACCEDE A LA BD
     val context = LocalContext.current
-    val database = AppDatabase.getDatabase(context)
+    val database = DatabaseProvider.getDatabase(context)
     val destinoDao = database.destinoDao()
 
-    // CREA EL REPO
-    val repo = DestinoRepository(destinoDao)
-
-    // CREA EL VIEWMODEL USANDO LA FACTORY
-    val destinosViewModel: DestinosViewModel = viewModel(
-        factory = DestinosViewModelFactory(repo)
-    )
 
     NavHost(
         navController = navController,
@@ -50,7 +40,7 @@ fun Navegacion() {
     ) {
         composable(Rutas.DESTINOS) {
             DestinosScreen(
-                viewModel = destinosViewModel,
+                destinoDao = destinoDao,
                 onDestinoSeleccionado = { destinoId ->
                     navController.navigate(Rutas.crearViaje(destinoId))
                 }

@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.DestinosFavoritos.DestinoFavoritoDao
+import com.tripmateapp.BaseDatos.DestinosFavoritos.DestinoFavoritoEntity
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDao
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDias.ItinerarioDiaDao
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioEntity
@@ -48,8 +49,8 @@ import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
         ViajeEntity::class,
         LugarTuristicoEntity::class,
         ActividadEntity::class,
-        ItinerarioDiaEntity::class
-        DestinoFavoritoEntity::class
+        ItinerarioDiaEntity::class,
+        DestinoFavoritoEntity ::class
 
     ],
     version = 1
