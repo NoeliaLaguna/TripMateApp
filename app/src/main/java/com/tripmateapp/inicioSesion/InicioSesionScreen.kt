@@ -7,25 +7,36 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripmateapp.BaseDatos.DatabaseProvider
+import com.tripmateapp.utilidades.PreferenciasLogin
+import kotlinx.coroutines.launch
 
 @Composable
 fun InicioSesionScreen(
-    viewModel: InicioSesionViewModel,
     onLoginCorrecto: () -> Unit,
     onIrARegistro: () -> Unit
 ) {
 
+    // ---------------- CONTEXTO Y DEPENDENCIAS ----------------
+    val context = LocalContext.current
+    val database = DatabaseProvider.getDatabase(context)
+    val usuarioDao = database.usuarioDao()
+    val preferenciasLogin = PreferenciasLogin(context)
+    val scope = rememberCoroutineScope()
+
+    // ---------------- ESTADO UI ----------------
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var recordar by remember { mutableStateOf(false) }
+    var mensaje by remember { mutableStateOf("") }
 
-    val mensaje by viewModel.mensaje.collectAsState()
-
+    // ---------------- UI ----------------
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -78,12 +89,41 @@ fun InicioSesionScreen(
 
         Button(
             onClick = {
-                viewModel.iniciarSesion(
-                    correo = correo,
-                    contrasena = contrasena,
-                    recordar = recordar,
-                    onLoginCorrecto = onLoginCorrecto
-                )
+                if (correo.isBlank() || contrasena.isBlank()) {
+                    mensaje = "Debes rellenar todos los campos"
+                    return@Button
+                }
+
+                scope.launch {
+                    val usuarioEncontrado =
+                        usuarioDao.getByCorreo(correo)
+
+                    when {
+                        usuarioEncontrado == null -> {
+                            mensaje = "El usuario no existe. Regístrate primero."
+                        }
+
+                        usuarioEncontrado.contrasenya != contrasena -> {
+                            mensaje = "Contraseña incorrecta."
+                        }
+
+                        else -> {
+                            mensaje = ""
+
+                            if (recordar) {
+                                preferenciasLogin.guardarDatosLogin(
+                                    correo,
+                                    contrasena,
+                                    true
+                                )
+                            } else {
+                                preferenciasLogin.borrarDatos()
+                            }
+
+                            onLoginCorrecto()
+                        }
+                    }
+                }
             },
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
