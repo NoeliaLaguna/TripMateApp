@@ -9,6 +9,9 @@ interface TransporteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transporte: TransporteEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(transportes: List<TransporteEntity>)
+
     @Update
     suspend fun update(transporte: TransporteEntity)
 

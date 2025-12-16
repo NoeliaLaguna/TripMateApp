@@ -7,6 +7,8 @@ interface LugarTuristicoDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(lugar: LugarTuristicoEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(lugares: List<LugarTuristicoEntity>)
 
     @Update
     suspend fun update(lugar: LugarTuristicoEntity)
