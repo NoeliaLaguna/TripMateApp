@@ -53,7 +53,7 @@ import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
         DestinoFavoritoEntity ::class
 
     ],
-    version = 1
+    version = 2
 )
 abstract class AppDatabase : RoomDatabase() {
 
