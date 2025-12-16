@@ -8,6 +8,10 @@ interface ActividadDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(actividad: ActividadEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(actividades: List<ActividadEntity>)
+
+
     @Update
     suspend fun update(actividad: ActividadEntity)
 
