@@ -21,6 +21,6 @@ data class ItinerarioDiaEntity(
     val id: Int = 0,
     val idItinerario: Int,   // Relación directa con ItinerarioEntity
     val fecha: String,
-    val horaInicio: Timestamp,
-    val horaFin: Timestamp
+    val horaInicio: String,
+    val horaFin: String
 )

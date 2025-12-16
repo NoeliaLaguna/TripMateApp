@@ -25,6 +25,6 @@ data class ActividadEntity(
     val tipoActividad: String,
     val orden: Int,
     val descripcion: String?,
-    val horaInicio: Timestamp?,
-    val horaFin: Timestamp?
+    val horaInicio: String?,
+    val horaFin: String?
 )
