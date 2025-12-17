@@ -7,7 +7,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.tripmateapp.BaseDatos.DatabaseProvider
-import com.tripmateapp.RegistroUsuario.RegistroScreen
 import com.tripmateapp.inicioSesion.InicioSesionScreen
 
 // ------------------------------
@@ -15,7 +14,6 @@ import com.tripmateapp.inicioSesion.InicioSesionScreen
 // ------------------------------
 object Rutas {
     const val LOGIN = "login"
-    const val REGISTRO = "registro"
     const val DESTINOS = "destinos"
     const val CREAR_VIAJE = "crearViaje/{destinoId}"
 
@@ -37,11 +35,13 @@ fun Navegacion() {
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.REGISTRO
+        startDestination = Rutas.DESTINOS
     ) {
 
         // ---------------- LOGIN ----------------
-        composable(Rutas.LOGIN) {
+        /*composable(Rutas.LOGIN) {
+
+
             InicioSesionScreen(
                 onLoginCorrecto = {
                     navController.navigate(Rutas.DESTINOS) {
@@ -49,27 +49,10 @@ fun Navegacion() {
                     }
                 },
                 onIrARegistro = {
-                    navController.navigate(Rutas.DESTINOS) {
-                        popUpTo(Rutas.REGISTRO) { inclusive = true }
-                    }                }
-            )
-        }
-
-        composable(Rutas.REGISTRO) {
-            RegistroScreen(
-                onRegistroCorrecto = {
-                    navController.navigate(Rutas.LOGIN) {
-                        popUpTo(Rutas.REGISTRO) { inclusive = true }
-                    }
-                },
-
-                onIrAInicioSesion = {
-                    navController.navigate(Rutas.LOGIN) {
-                        popUpTo(Rutas.LOGIN) { inclusive = true }
-                    }
+                    // Si más adelante haces registro, navegas aquí
                 }
             )
-        }
+        }*/
 
         // ---------------- DESTINOS ----------------
         composable(Rutas.DESTINOS) {
