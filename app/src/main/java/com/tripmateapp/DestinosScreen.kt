@@ -21,6 +21,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
+import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
+import com.tripmateapp.BaseDatos.Transporte.TransporteDao
+import com.tripmateapp.BaseDatos.actividades.ActividadDao
 import java.text.Normalizer
 
 // --------------------------------------------------------------
@@ -38,16 +41,19 @@ fun String.normalize(): String {
 @Composable
 fun DestinosScreen(
     destinoDao: DestinoDao,
+    actividadDao: ActividadDao,
+    restauranteDao: RestauranteDao,
+    transporteDao: TransporteDao,
     onDestinoSeleccionado: (Int) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+
     val destinos by destinoDao.getAll().collectAsState(initial = emptyList())
 
-    // Destinos que se mostrarán después de pulsar buscar
-    var destinosVisibles by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
+    var destinoSeleccionado by remember { mutableStateOf<DestinoEntity?>(null) }
 
-    // Controla si se muestran resultados o no
-    var mostrarResultados by remember { mutableStateOf(false) }
+    // Tabs seleccionadas
+    var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -55,49 +61,68 @@ fun DestinosScreen(
                 query = query,
                 onQueryChange = { query = it },
                 onSearchClick = {
-                    // Activar resultados
-                    mostrarResultados = true
-
-                    val normalizedQuery = query.normalize()
-
-                    // Filtrado usando normalización
-                    destinosVisibles = destinos.filter { destino ->
-                        destino.nombre.normalize().contains(normalizedQuery) ||
-                                destino.pais.normalize().contains(normalizedQuery) ||
-                                (destino.descripcion?.normalize()?.contains(normalizedQuery) == true)
+                    destinoSeleccionado = destinos.find { d ->
+                        d.nombre.normalize().contains(query.normalize())
                     }
                 }
             )
-        },
-        containerColor = Color(0xFFF7F7F7)
+        }
     ) { innerPadding ->
 
-        // SI NO SE HA BUSCADO → INNERPADDING VACÍO O MENSAJE
-        if (!mostrarResultados) {
+        // Si aún no se ha buscado nada
+        if (destinoSeleccionado == null) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Introduce un destino y pulsa buscar",
-                    color = Color.Gray
+                Text("Introduce un destino y pulsa buscar", color = Color.Gray)
+            }
+            return@Scaffold
+        }
+
+        // DESTINO ENCONTRADO → MOSTRAR TABS
+        Column(modifier = Modifier.padding(innerPadding)) {
+
+            // 🔥 TABS
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("Actividades") }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("Restaurantes") }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text("Transporte") }
                 )
             }
-        } else {
-            // RESULTADOS
-            LazyColumn(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                items(destinosVisibles) { destino ->
-                    DestinoCardAirbnb(
-                        destino = destino,
-                        onSelect = { onDestinoSeleccionado(destino.id) }
-                    )
-                }
+
+            Spacer(Modifier.height(16.dp))
+
+            // 🔥 CONTENIDO SEGÚN TAB SELECCIONADA
+            when (selectedTab) {
+
+                0 -> ActividadesList(
+                    destinoId = destinoSeleccionado!!.id,
+                    actividadDao = actividadDao
+                )
+
+                1 -> RestaurantesList(
+                    destinoId = destinoSeleccionado!!.id,
+                    restauranteDao = restauranteDao
+                )
+
+                2 -> TransportesList(
+                    destinoId = destinoSeleccionado!!.id,
+                    transporteDao = transporteDao
+                )
             }
         }
     }
@@ -177,51 +202,54 @@ fun TripMateTopBar(
 }
 
 // ------------------------------------------------------------------
-//                        TARJETA DE DESTINO
+//                        TARJETAS DE DESTINO
 // ------------------------------------------------------------------
 @Composable
-fun DestinoCardAirbnb(
-    destino: DestinoEntity,
-    onSelect: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp)
-            .clickable { onSelect() },
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_background),
-                contentDescription = destino.nombre,
-                modifier = Modifier
-                    .height(180.dp)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                contentScale = ContentScale.Crop
-            )
+fun ActividadesList(destinoId: Int, actividadDao: ActividadDao) {
+    val actividades by actividadDao.getByDestino(destinoId).collectAsState(initial = emptyList())
 
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
-                Text(destino.pais, color = Color.Gray)
-
-                destino.descripcion?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(text = it, maxLines = 2)
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Button(
-                    onClick = onSelect,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Seleccionar")
-                }
+    if (actividades.isEmpty()) {
+        Text("No hay actividades disponibles", modifier = Modifier.padding(16.dp))
+    } else {
+        LazyColumn {
+            items(actividades) { actividad ->
+                Text(
+                    actividad.tipoActividad,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
 }
+
+@Composable
+fun RestaurantesList(destinoId: Int, restauranteDao: RestauranteDao) {
+    val restaurantes by restauranteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(restaurantes) { rest ->
+            Text(
+                rest.nombre,
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+}
+
+@Composable
+fun TransportesList(destinoId: Int, transporteDao: TransporteDao) {
+    val transportes by transporteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(transportes) { tr ->
+            Text(
+                "${tr.tipo} - ${tr.nombre ?: ""}",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+}
+

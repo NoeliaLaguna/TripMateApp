@@ -21,7 +21,8 @@ import java.sql.Timestamp
 data class ActividadEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val idItinerarioDia: Int,   // Relación directa con ItinerarioDiaEntity
+    val idItinerarioDia: Int?,   // Relación directa con ItinerarioDiaEntity
+    val destinoId: Int,         // Relación con Destino
     val tipoActividad: String,
     val orden: Int,
     val descripcion: String?,

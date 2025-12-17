@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.tripmateapp.BaseDatos.DatabaseProvider
+import com.tripmateapp.RegistroUsuario.RegistroScreen
 import com.tripmateapp.inicioSesion.InicioSesionScreen
 
 // ------------------------------
@@ -14,6 +15,7 @@ import com.tripmateapp.inicioSesion.InicioSesionScreen
 // ------------------------------
 object Rutas {
     const val LOGIN = "login"
+    const val REGISTRO = "registro"
     const val DESTINOS = "destinos"
     const val CREAR_VIAJE = "crearViaje/{destinoId}"
 
@@ -35,13 +37,11 @@ fun Navegacion() {
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.DESTINOS
+        startDestination = Rutas.REGISTRO
     ) {
 
         // ---------------- LOGIN ----------------
-        /*composable(Rutas.LOGIN) {
-
-
+        composable(Rutas.LOGIN) {
             InicioSesionScreen(
                 onLoginCorrecto = {
                     navController.navigate(Rutas.DESTINOS) {
@@ -49,15 +49,38 @@ fun Navegacion() {
                     }
                 },
                 onIrARegistro = {
-                    // Si más adelante haces registro, navegas aquí
+                    navController.navigate(Rutas.DESTINOS) {
+                        popUpTo(Rutas.REGISTRO) { inclusive = true }
+                    }                }
+            )
+        }
+
+        composable(Rutas.REGISTRO) {
+            RegistroScreen(
+                onRegistroCorrecto = {
+                    navController.navigate(Rutas.LOGIN) {
+                        popUpTo(Rutas.REGISTRO) { inclusive = true }
+                    }
+                },
+
+                onIrAInicioSesion = {
+                    navController.navigate(Rutas.LOGIN) {
+                        popUpTo(Rutas.LOGIN) { inclusive = true }
+                    }
                 }
             )
-        }*/
+        }
 
         // ---------------- DESTINOS ----------------
+        val actividadDao = database.actividadDao()
+        val restauranteDao = database.restauranteDao()
+        val transporteDao = database.transporteDao()
         composable(Rutas.DESTINOS) {
             DestinosScreen(
                 destinoDao = destinoDao,
+                actividadDao = actividadDao,
+                restauranteDao = restauranteDao,
+                transporteDao = transporteDao,
                 onDestinoSeleccionado = { destinoId ->
                     navController.navigate(Rutas.crearViaje(destinoId))
                 }
