@@ -2,6 +2,7 @@ package com.tripmateapp.BaseDatos.Restaurantes
 
 
 import androidx.room.*
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RestauranteDao {
@@ -22,5 +23,5 @@ interface RestauranteDao {
     suspend fun getAll(): List<RestauranteEntity>
 
     @Query("SELECT * FROM restaurantes WHERE destinoId = :destinoId")
-    suspend fun getByDestino(destinoId: Int): List<RestauranteEntity>
+     fun getByDestino(destinoId: Int): Flow<List<RestauranteEntity>>
 }

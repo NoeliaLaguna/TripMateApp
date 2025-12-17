@@ -1,6 +1,7 @@
 package com.tripmateapp.BaseDatos.actividades
 
 import androidx.room.*
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ActividadDao {
@@ -11,6 +12,8 @@ interface ActividadDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(actividades: List<ActividadEntity>)
 
+    @Query("SELECT * FROM actividades WHERE destinoId = :destinoId")
+    fun getByDestino(destinoId: Int): Flow<List<ActividadEntity>>
 
     @Update
     suspend fun update(actividad: ActividadEntity)
@@ -25,5 +28,5 @@ interface ActividadDao {
     suspend fun getById(id: Int): ActividadEntity?
 
     @Query("SELECT * FROM actividades WHERE idItinerarioDia = :idItinerarioDia ORDER BY orden ASC")
-    suspend fun getByItinerarioDia(idItinerarioDia: Int): List<ActividadEntity>
+    fun getByItinerarioDia(idItinerarioDia: Int): Flow<List<ActividadEntity>>
 }
