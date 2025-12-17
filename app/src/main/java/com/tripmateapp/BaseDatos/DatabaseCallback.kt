@@ -1,3 +1,4 @@
+import android.util.Log
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.tripmateapp.BaseDatos.AppDatabase
@@ -28,6 +29,7 @@ class DatabaseCallback(
 ) : RoomDatabase.Callback() {
 
     override fun onCreate(db: SupportSQLiteDatabase) {
+        Log.d("DATABASENOELIA", "SE HA EJECUTADO EL CALLBACK Y SE INSERTAN DATOS")
         super.onCreate(db)
 
         scope.launch {

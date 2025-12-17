@@ -4,9 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -20,64 +21,164 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
+import java.text.Normalizer
 
+// --------------------------------------------------------------
+// 🔧 FUNCIÓN PARA NORMALIZAR (QUITAR ACENTOS Y MINUSCULIZAR)
+// --------------------------------------------------------------
+fun String.normalize(): String {
+    return Normalizer.normalize(this, Normalizer.Form.NFD)
+        .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        .lowercase()
+}
+
+// ------------------------------------------------------------------
+//                  PANTALLA PRINCIPAL DE DESTINOS
+// ------------------------------------------------------------------
 @Composable
 fun DestinosScreen(
     destinoDao: DestinoDao,
     onDestinoSeleccionado: (Int) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
-
     val destinos by destinoDao.getAll().collectAsState(initial = emptyList())
 
-    val destinosFiltrados = destinos.filter {
-        it.nombre.contains(query, ignoreCase = true)
-    }
+    // Destinos que se mostrarán después de pulsar buscar
+    var destinosVisibles by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
 
+    // Controla si se muestran resultados o no
+    var mostrarResultados by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TripMateTopBar(
+                query = query,
+                onQueryChange = { query = it },
+                onSearchClick = {
+                    // Activar resultados
+                    mostrarResultados = true
+
+                    val normalizedQuery = query.normalize()
+
+                    // Filtrado usando normalización
+                    destinosVisibles = destinos.filter { destino ->
+                        destino.nombre.normalize().contains(normalizedQuery) ||
+                                destino.pais.normalize().contains(normalizedQuery) ||
+                                (destino.descripcion?.normalize()?.contains(normalizedQuery) == true)
+                    }
+                }
+            )
+        },
+        containerColor = Color(0xFFF7F7F7)
+    ) { innerPadding ->
+
+        // SI NO SE HA BUSCADO → INNERPADDING VACÍO O MENSAJE
+        if (!mostrarResultados) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Introduce un destino y pulsa buscar",
+                    color = Color.Gray
+                )
+            }
+        } else {
+            // RESULTADOS
+            LazyColumn(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp)
+            ) {
+                items(destinosVisibles) { destino ->
+                    DestinoCardAirbnb(
+                        destino = destino,
+                        onSelect = { onDestinoSeleccionado(destino.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+//                  TOP BAR ESTILO AIRBNB
+// ------------------------------------------------------------------
+@Composable
+fun TripMateTopBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearchClick: () -> Unit
+) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF7F7F7)) // Fondo gris claro tipo Airbnb
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
 
-        // Barra de búsqueda estilo Airbnb
-        SearchBar(query) { query = it }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = "Logo TripMate",
+                modifier = Modifier.height(40.dp)
+            )
+        }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(20.dp))
 
-        LazyColumn(
+        Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxSize()
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(50))
+                .background(Color(0xFFF2F2F2))
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(destinosFiltrados) { destino ->
-                DestinoCardAirbnb(
-                    destino = destino,
-                    onSelect = { onDestinoSeleccionado(destino.id) }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Destino",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.labelMedium
+                )
+
+                TextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Buscar destinos") },
+                    colors = TextFieldDefaults.colors(
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF385C))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Buscar",
+                    tint = Color.White
                 )
             }
         }
     }
 }
 
-@Composable
-fun SearchBar(value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        placeholder = { Text("¿Dónde quieres viajar?") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        shape = RoundedCornerShape(30.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = Color.LightGray,
-            focusedBorderColor = Color.Black
-        )
-    )
-}
-
+// ------------------------------------------------------------------
+//                        TARJETA DE DESTINO
+// ------------------------------------------------------------------
 @Composable
 fun DestinoCardAirbnb(
     destino: DestinoEntity,
@@ -92,8 +193,6 @@ fun DestinoCardAirbnb(
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column {
-
-            // 🔥 Imagen local (sin internet)
             Image(
                 painter = painterResource(R.drawable.ic_launcher_background),
                 contentDescription = destino.nombre,
@@ -105,15 +204,8 @@ fun DestinoCardAirbnb(
             )
 
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = destino.nombre,
-                    style = MaterialTheme.typography.titleLarge
-                )
-
-                Text(
-                    text = destino.pais,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+                Text(destino.pais, color = Color.Gray)
 
                 destino.descripcion?.let {
                     Spacer(Modifier.height(8.dp))

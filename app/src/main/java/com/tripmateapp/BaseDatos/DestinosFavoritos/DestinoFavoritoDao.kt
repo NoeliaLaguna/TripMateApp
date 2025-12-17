@@ -8,6 +8,7 @@ interface DestinoFavoritoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(favorito: DestinoFavoritoEntity)
 
+
     @Delete
     suspend fun delete(favorito: DestinoFavoritoEntity)
 
