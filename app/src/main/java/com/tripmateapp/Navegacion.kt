@@ -35,11 +35,13 @@ fun Navegacion() {
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.LOGIN
+        startDestination = Rutas.DESTINOS
     ) {
 
         // ---------------- LOGIN ----------------
-        composable(Rutas.LOGIN) {
+        /*composable(Rutas.LOGIN) {
+
+
             InicioSesionScreen(
                 onLoginCorrecto = {
                     navController.navigate(Rutas.DESTINOS) {
@@ -50,7 +52,7 @@ fun Navegacion() {
                     // Si más adelante haces registro, navegas aquí
                 }
             )
-        }
+        }*/
 
         // ---------------- DESTINOS ----------------
         composable(Rutas.DESTINOS) {

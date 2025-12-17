@@ -8,6 +8,6 @@ data class UsuarioEntity(
     val nombre: String,
     val correo: String,
     val contrasenya: String?,
-    val presupuesto: Double,
-    val tipoDeViaje: String
+    val presupuesto: Double?,
+    val tipoDeViaje: String?
 )

@@ -6,6 +6,7 @@ import androidx.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 
 /**
@@ -29,21 +30,31 @@ object DatabaseProvider {
 
     fun getDatabase(context: Context): AppDatabase {
         return INSTANCE ?: synchronized(this) {
+            // 1️⃣ Crear la instancia SIN callback automático
             val instance = Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,
                 "tripmate_db"
             )
-                .addCallback(
-                    DatabaseCallback(
-                        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-                        dbProvider = { INSTANCE!! }
-                    )
-                )
+                .fallbackToDestructiveMigration()
                 .build()
 
+            // 2️⃣ Asignamos INSTANCE
             INSTANCE = instance
+
+            // 3️⃣ Ejecutamos el callback manualmente AHORA
+            val callback = DatabaseCallback(
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                dbProvider = { instance }  // <-- aquí pasamos la instancia real
+            )
+
+            CoroutineScope(Dispatchers.IO).launch {
+                callback.onCreate(instance.openHelper.writableDatabase)
+            }
+
             instance
         }
     }
+    fun getInstanceUnsafe(): AppDatabase = INSTANCE
+        ?: throw IllegalStateException("Database not initialized yet")
 }
