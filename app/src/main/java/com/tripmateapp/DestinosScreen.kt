@@ -22,8 +22,11 @@ import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
+import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
+import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
+import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import java.text.Normalizer
 
 // --------------------------------------------------------------
@@ -144,11 +147,14 @@ fun TripMateTopBar(
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 40.dp, top = 15.dp)
+
+                .fillMaxWidth()) {
             Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
+                painter = painterResource(R.drawable.logo_tripmate),
                 contentDescription = "Logo TripMate",
-                modifier = Modifier.height(40.dp)
+                modifier = Modifier.height(60.dp)
             )
         }
 
@@ -162,13 +168,15 @@ fun TripMateTopBar(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Column(modifier = Modifier.weight(0.5f)) {
+            Text(
+                text = "Destino:",
+                color = Color.Gray,
+                style = MaterialTheme.typography.labelMedium
+            )}
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Destino",
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.labelMedium
-                )
+            Column(modifier = Modifier.weight(2f)) {
+
 
                 TextField(
                     value = query,
@@ -181,6 +189,7 @@ fun TripMateTopBar(
                         focusedIndicatorColor = Color.Transparent
                     ),
                     modifier = Modifier.fillMaxWidth()
+                        .height(0.dp)
                 )
             }
 
@@ -205,7 +214,11 @@ fun TripMateTopBar(
 //                        TARJETAS DE DESTINO
 // ------------------------------------------------------------------
 @Composable
-fun ActividadesList(destinoId: Int, actividadDao: ActividadDao) {
+fun ActividadesList(
+    destinoId: Int,
+    actividadDao: ActividadDao,
+    onAddToItinerary: (ActividadEntity) -> Unit = {}
+) {
     val actividades by actividadDao.getByDestino(destinoId).collectAsState(initial = emptyList())
 
     if (actividades.isEmpty()) {
@@ -213,10 +226,9 @@ fun ActividadesList(destinoId: Int, actividadDao: ActividadDao) {
     } else {
         LazyColumn {
             items(actividades) { actividad ->
-                Text(
-                    actividad.tipoActividad,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium
+                ActividadCardExpandable(
+                    actividad = actividad,
+                    onAddToItinerary = onAddToItinerary
                 )
             }
         }
@@ -224,31 +236,175 @@ fun ActividadesList(destinoId: Int, actividadDao: ActividadDao) {
 }
 
 @Composable
-fun RestaurantesList(destinoId: Int, restauranteDao: RestauranteDao) {
+fun ActividadCardExpandable(
+    actividad: ActividadEntity,
+    onAddToItinerary: (ActividadEntity) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // Título
+            Text(
+                actividad.descripcion ?: "Sin descripción",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Tipo de actividad: ${actividad.tipoActividad}")
+                Text("Inicio: ${actividad.horaInicio ?: "-"}")
+                Text("Fin: ${actividad.horaFin ?: "-"}")
+                Text("Orden sugerido: ${actividad.orden}")
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        onAddToItinerary(actividad)
+                        expanded = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun RestaurantesList(
+    destinoId: Int,
+    restauranteDao: RestauranteDao,
+    onAddToItinerary: (RestauranteEntity) -> Unit = {}
+) {
     val restaurantes by restauranteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
 
     LazyColumn {
         items(restaurantes) { rest ->
-            Text(
-                rest.nombre,
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.titleMedium
+            RestauranteCardExpandable(
+                restaurante = rest,
+                onAddToItinerary = onAddToItinerary
             )
         }
     }
 }
 
 @Composable
-fun TransportesList(destinoId: Int, transporteDao: TransporteDao) {
+fun RestauranteCardExpandable(
+    restaurante: RestauranteEntity,
+    onAddToItinerary: (RestauranteEntity) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Text(restaurante.nombre, style = MaterialTheme.typography.titleLarge)
+
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Ubicación: ${restaurante.ubicacion}")
+                Text("Tipo de comida: ${restaurante.tipoComida}")
+                Text("Puntuación: ${restaurante.puntuacionMedia}")
+                Text("Horario: ${restaurante.horarioApertura}")
+                Text("Precio: ${restaurante.rangoPrecio}")
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        onAddToItinerary(restaurante)
+                        expanded = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun TransportesList(
+    destinoId: Int,
+    transporteDao: TransporteDao,
+    onAddToItinerary: (TransporteEntity) -> Unit = {}
+) {
     val transportes by transporteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
 
     LazyColumn {
         items(transportes) { tr ->
-            Text(
-                "${tr.tipo} - ${tr.nombre ?: ""}",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.titleMedium
+            TransporteCardExpandable(
+                transporte = tr,
+                onAddToItinerary = onAddToItinerary
             )
+        }
+    }
+}
+@Composable
+fun TransporteCardExpandable(
+    transporte: TransporteEntity,
+    onAddToItinerary: (TransporteEntity) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Text("${transporte.tipo} - ${transporte.nombre ?: ""}",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Horario: ${transporte.horario ?: "-"}")
+                Text("Precio: ${transporte.precio ?: "-"}")
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        onAddToItinerary(transporte)
+                        expanded = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
         }
     }
 }

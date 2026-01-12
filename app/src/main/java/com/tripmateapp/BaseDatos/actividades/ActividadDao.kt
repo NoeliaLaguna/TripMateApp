@@ -29,4 +29,7 @@ interface ActividadDao {
 
     @Query("SELECT * FROM actividades WHERE idItinerarioDia = :idItinerarioDia ORDER BY orden ASC")
     fun getByItinerarioDia(idItinerarioDia: Int): Flow<List<ActividadEntity>>
+
+    @Query("SELECT COUNT(*) FROM actividades")
+    suspend fun count(): Int
 }

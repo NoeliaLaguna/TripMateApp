@@ -6,6 +6,7 @@ import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
+import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -31,6 +32,20 @@ class DatabaseCallback(
             insertarLugaresTuristicos(database)
             insertarRestaurantes(database)
             insertarTransportes(database)
+            insertarActividades(database)
+        }
+    }
+
+    override fun onOpen(db: SupportSQLiteDatabase) {
+        super.onOpen(db)
+
+        scope.launch {
+            val database = dbProvider()
+
+            if (database.actividadDao().count() == 0) {
+                Log.d("NOELIA", "BD abierta sin actividades, insertando...")
+                insertarActividades(database)
+            }
         }
     }
 }
@@ -160,4 +175,59 @@ private suspend fun insertarTransportes(db: AppDatabase) {
         }
     }
     db.transporteDao().insertAll(transportes)
+}
+/* ===========================
+   ACTIVIDADES (5 x destino)
+   =========================== */
+private suspend fun insertarActividades(db: AppDatabase) {
+    val actividades = (1..10).flatMap { destinoId ->
+        listOf(
+            ActividadEntity(
+                idItinerarioDia = null, // Se asignará cuando exista el itinerario
+                destinoId = destinoId,
+                tipoActividad = "Cultural",
+                orden = 1,
+                descripcion = "Visita guiada por el centro histórico",
+                horaInicio = "09:00",
+                horaFin = "11:00"
+            ),
+            ActividadEntity(
+                idItinerarioDia = null,
+                destinoId = destinoId,
+                tipoActividad = "Gastronómica",
+                orden = 2,
+                descripcion = "Almuerzo en restaurante típico",
+                horaInicio = "13:00",
+                horaFin = "14:30"
+            ),
+            ActividadEntity(
+                idItinerarioDia = null,
+                destinoId = destinoId,
+                tipoActividad = "Ocio",
+                orden = 3,
+                descripcion = "Paseo por zona comercial",
+                horaInicio = "16:00",
+                horaFin = "18:00"
+            ),
+            ActividadEntity(
+                idItinerarioDia = null,
+                destinoId = destinoId,
+                tipoActividad = "Naturaleza",
+                orden = 4,
+                descripcion = "Visita a parque o mirador",
+                horaInicio = "18:30",
+                horaFin = "19:30"
+            ),
+            ActividadEntity(
+                idItinerarioDia = null,
+                destinoId = destinoId,
+                tipoActividad = "Nocturna",
+                orden = 5,
+                descripcion = "Cena y paseo nocturno",
+                horaInicio = "21:00",
+                horaFin = "23:00"
+            )
+        )
+    }
+    db.actividadDao().insertAll(actividades)
 }
