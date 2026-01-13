@@ -18,14 +18,26 @@ interface DestinoDao {
     @Delete
     suspend fun delete(destino: DestinoEntity)
 
+    // ✅ PARA COMPOSE / UI
     @Query("SELECT * FROM destinos")
-    fun getAll(): Flow<List<DestinoEntity>>
+    fun getAllFlow(): Flow<List<DestinoEntity>>
+
+    @Query("SELECT * FROM destinos")
+    suspend fun getAll(): List<DestinoEntity>
 
     // 🔍 Búsqueda por nombre (para searchDestinos del repository)
     @Query("SELECT * FROM destinos WHERE nombre LIKE '%' || :query || '%'")
     fun searchDestinos(query: String): Flow<List<DestinoEntity>>
 
+    // 🔍 Búsqueda por pais (para searchDestinos del repository)
+
+    @Query("SELECT * FROM destinos WHERE pais LIKE '%' || :query || '%'")
+    fun searchDestinosPorPais(query: String): Flow<List<DestinoEntity>>
+
     // Si quieres mantener esto también como Flow
     @Query("SELECT * FROM destinos WHERE id = :id")
     fun getById(id: Int): Flow<DestinoEntity?>
+
+    @Query("SELECT COUNT(*) FROM destinos")
+    suspend fun count(): Int
 }
