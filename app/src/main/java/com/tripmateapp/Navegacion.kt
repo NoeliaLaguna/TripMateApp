@@ -37,7 +37,7 @@ fun Navegacion() {
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.LOGIN
+        startDestination = Rutas.DESTINOS
     ) {
 
         // ---------------- LOGIN ----------------

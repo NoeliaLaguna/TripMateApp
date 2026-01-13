@@ -8,6 +8,7 @@ import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 /**
@@ -21,7 +22,7 @@ class DatabaseCallback(
     private val dbProvider: () -> AppDatabase
 ) : RoomDatabase.Callback() {
 
-    override fun onCreate(db: SupportSQLiteDatabase) {
+    /*override fun onCreate(db: SupportSQLiteDatabase) {
         Log.d("NOELIA", "SE HA EJECUTADO EL CALLBACK Y SE INSERTAN DATOS")
         super.onCreate(db)
 
@@ -34,7 +35,8 @@ class DatabaseCallback(
             insertarTransportes(database)
             insertarActividades(database)
         }
-    }
+    }*/
+
 
     override fun onOpen(db: SupportSQLiteDatabase) {
         super.onOpen(db)
@@ -42,12 +44,22 @@ class DatabaseCallback(
         scope.launch {
             val database = dbProvider()
 
-            if (database.actividadDao().count() == 0) {
-                Log.d("NOELIA", "BD abierta sin actividades, insertando...")
-                insertarActividades(database)
+            if (database.destinoDao().count() == 0) {
+                Log.d("NOELIA", "BD vacía, insertando seed")
+
+                insertarDestinos(database)
+
+                val destinos = database.destinoDao().getAll()
+
+                insertarLugaresTuristicos(database, destinos)
+                insertarRestaurantes(database, destinos)
+                insertarTransportes(database, destinos)
+                insertarActividades(database, destinos)
             }
         }
     }
+
+
 }
 
 /* ===========================
@@ -64,6 +76,12 @@ private suspend fun insertarDestinos(db: AppDatabase) {
             ),
             DestinoEntity(
                 nombre = "Roma",
+                pais = "Italia",
+                descripcion = "Historia milenaria",
+                coordenadas = "41.9028,12.4964"
+            ),
+            DestinoEntity(
+                nombre = "Florencia",
                 pais = "Italia",
                 descripcion = "Historia milenaria",
                 coordenadas = "41.9028,12.4964"
@@ -123,12 +141,15 @@ private suspend fun insertarDestinos(db: AppDatabase) {
 /* ===========================
    LUGARES TURÍSTICOS (5 x destino)
    =========================== */
-private suspend fun insertarLugaresTuristicos(db: AppDatabase) {
-    val lugares = (1..10).flatMap { destinoId ->
+private suspend fun insertarLugaresTuristicos(
+    db: AppDatabase,
+    destinos: List<DestinoEntity>
+) {
+    val lugares = destinos.flatMap { destino ->
         (1..5).map {
             LugarTuristicoEntity(
-                destinoId = destinoId,
-                nombre = "Lugar $it - Destino $destinoId",
+                destinoId = destino.id,
+                nombre = "Lugar $it - ${destino.nombre}",
                 descripcion = "Descripción del lugar $it",
                 ubicacion = "Ubicación genérica",
                 valoracion = 4.0 + it * 0.1,
@@ -139,15 +160,19 @@ private suspend fun insertarLugaresTuristicos(db: AppDatabase) {
     db.lugarTuristicoDao().insertAll(lugares)
 }
 
+
 /* ===========================
    RESTAURANTES (5 x destino)
    =========================== */
-private suspend fun insertarRestaurantes(db: AppDatabase) {
-    val restaurantes = (1..10).flatMap { destinoId ->
+private suspend fun insertarRestaurantes(
+    db: AppDatabase,
+    destinos: List<DestinoEntity>
+) {
+    val restaurantes = destinos.flatMap { destino ->
         (1..5).map {
             RestauranteEntity(
-                destinoId = destinoId,
-                nombre = "Restaurante $it - Destino $destinoId",
+                destinoId = destino.id,
+                nombre = "Restaurante $it - ${destino.nombre}",
                 ubicacion = "Zona $it",
                 tipoComida = "Internacional",
                 puntuacionMedia = 4.0 + it * 0.1,
@@ -159,16 +184,22 @@ private suspend fun insertarRestaurantes(db: AppDatabase) {
     db.restauranteDao().insertAll(restaurantes)
 }
 
+
 /* ===========================
    TRANSPORTES (5 x destino)
    =========================== */
-private suspend fun insertarTransportes(db: AppDatabase) {
-    val transportes = (1..10).flatMap { destinoId ->
+private suspend fun insertarTransportes(
+    db: AppDatabase,
+    destinos: List<DestinoEntity>
+) {
+    val tipos = listOf("Metro", "Bus", "Tranvía", "Taxi", "Bici")
+
+    val transportes = destinos.flatMap { destino ->
         (1..5).map {
             TransporteEntity(
-                destinoId = destinoId,
-                tipo = listOf("Metro", "Bus", "Tranvía", "Taxi", "Bici")[it - 1],
-                nombre = "Transporte $it - Destino $destinoId",
+                destinoId = destino.id,
+                tipo = tipos[it - 1],
+                nombre = "Transporte $it - ${destino.nombre}",
                 horario = "06:00 - 23:00",
                 precio = 1.5 + it * 0.3
             )
@@ -176,54 +207,58 @@ private suspend fun insertarTransportes(db: AppDatabase) {
     }
     db.transporteDao().insertAll(transportes)
 }
+
 /* ===========================
    ACTIVIDADES (5 x destino)
    =========================== */
-private suspend fun insertarActividades(db: AppDatabase) {
-    val actividades = (1..10).flatMap { destinoId ->
+private suspend fun insertarActividades(
+    db: AppDatabase,
+    destinos: List<DestinoEntity>
+) {
+    val actividades = destinos.flatMap { destino ->
         listOf(
             ActividadEntity(
-                idItinerarioDia = null, // Se asignará cuando exista el itinerario
-                destinoId = destinoId,
+                idItinerarioDia = null,
+                destinoId = destino.id,
                 tipoActividad = "Cultural",
                 orden = 1,
-                descripcion = "Visita guiada por el centro histórico",
+                descripcion = "Visita guiada por el centro histórico de ${destino.nombre}",
                 horaInicio = "09:00",
                 horaFin = "11:00"
             ),
             ActividadEntity(
                 idItinerarioDia = null,
-                destinoId = destinoId,
+                destinoId = destino.id,
                 tipoActividad = "Gastronómica",
                 orden = 2,
-                descripcion = "Almuerzo en restaurante típico",
+                descripcion = "Almuerzo en restaurante típico de ${destino.nombre}",
                 horaInicio = "13:00",
                 horaFin = "14:30"
             ),
             ActividadEntity(
                 idItinerarioDia = null,
-                destinoId = destinoId,
+                destinoId = destino.id,
                 tipoActividad = "Ocio",
                 orden = 3,
-                descripcion = "Paseo por zona comercial",
+                descripcion = "Paseo por zona comercial de ${destino.nombre}",
                 horaInicio = "16:00",
                 horaFin = "18:00"
             ),
             ActividadEntity(
                 idItinerarioDia = null,
-                destinoId = destinoId,
+                destinoId = destino.id,
                 tipoActividad = "Naturaleza",
                 orden = 4,
-                descripcion = "Visita a parque o mirador",
+                descripcion = "Visita a parque o mirador de ${destino.nombre}",
                 horaInicio = "18:30",
                 horaFin = "19:30"
             ),
             ActividadEntity(
                 idItinerarioDia = null,
-                destinoId = destinoId,
+                destinoId = destino.id,
                 tipoActividad = "Nocturna",
                 orden = 5,
-                descripcion = "Cena y paseo nocturno",
+                descripcion = "Cena y paseo nocturno por ${destino.nombre}",
                 horaInicio = "21:00",
                 horaFin = "23:00"
             )
@@ -231,3 +266,4 @@ private suspend fun insertarActividades(db: AppDatabase) {
     }
     db.actividadDao().insertAll(actividades)
 }
+

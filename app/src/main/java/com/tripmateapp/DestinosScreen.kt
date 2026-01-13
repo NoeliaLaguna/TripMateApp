@@ -6,9 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
@@ -51,9 +55,15 @@ fun DestinosScreen(
 ) {
     var query by remember { mutableStateOf("") }
 
-    val destinos by destinoDao.getAll().collectAsState(initial = emptyList())
+    val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
 
     var destinoSeleccionado by remember { mutableStateOf<DestinoEntity?>(null) }
+
+    var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
+
+    var mostrarSelectorCiudades by remember { mutableStateOf(false) }
+
+
 
     // Tabs seleccionadas
     var selectedTab by remember { mutableStateOf(0) }
@@ -64,31 +74,170 @@ fun DestinosScreen(
                 query = query,
                 onQueryChange = { query = it },
                 onSearchClick = {
-                    destinoSeleccionado = destinos.find { d ->
-                        d.nombre.normalize().contains(query.normalize())
+                    val queryNorm = query.normalize()
+
+                    // 1️⃣ Buscar por ciudad
+                    val ciudades = destinos.filter { d ->
+                        d.nombre.normalize().contains(queryNorm)
+                    }
+
+                    destinoSeleccionado = when {
+                        ciudades.size == 1 -> ciudades.first()
+                        ciudades.size > 1 -> {
+                            opcionesFiltrado = ciudades
+                            null
+                        }
+                        else -> {
+                            // 2️⃣ Buscar por país
+                            val paises = destinos.filter { d ->
+                                d.pais.normalize().contains(queryNorm)
+                            }
+
+                            when {
+                                paises.size == 1 -> paises.first()
+                                paises.size > 1 -> {
+                                    opcionesFiltrado = paises
+                                    null
+                                }
+                                else -> null
+                            }
+                        }
                     }
                 }
             )
         }
     ) { innerPadding ->
 
-        // Si aún no se ha buscado nada
-        if (destinoSeleccionado == null) {
-            Box(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Introduce un destino y pulsa buscar", color = Color.Gray)
-            }
-            return@Scaffold
-        }
-
-        // DESTINO ENCONTRADO → MOSTRAR TABS
         Column(modifier = Modifier.padding(innerPadding)) {
 
-            // 🔥 TABS
+            // ⭐ ⭐ ⭐
+            // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
+            // ⭐ ⭐ ⭐
+            if (opcionesFiltrado.isNotEmpty()) {
+
+                Text(
+                    "Hemos encontrado varias ciudades. Selecciona una:",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                LazyColumn {
+                    items(opcionesFiltrado) { destino ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    destinoSeleccionado = destino
+                                    opcionesFiltrado = emptyList()
+                                },
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+                                Text(destino.pais, color = Color.Gray)
+                            }
+                        }
+                    }
+                }
+
+                return@Column
+            }
+
+            // ⭐ ⭐ ⭐
+            // 2️⃣ MOSTRAR INFO DEL DESTINO SELECCIONADO
+            // ⭐ ⭐ ⭐
+            destinoSeleccionado?.let { destino ->
+
+                // Buscar todas las ciudades del mismo país
+                val ciudadesMismoPais = destinos.filter { it.pais == destino.pais }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+
+                        // NOMBRE DEL DESTINO
+                        Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+
+                        // PAÍS
+                        Text(destino.pais, color = Color.Gray)
+
+                        // DESCRIPCIÓN
+                        destino.descripcion?.let {
+                            Spacer(Modifier.height(6.dp))
+                            Text(it)
+                        }
+
+                        // ⭐ MOSTRAR BOTÓN SI HAY MÁS DE UNA CIUDAD
+                        if (ciudadesMismoPais.size > 1) {
+
+                            Spacer(Modifier.height(12.dp))
+
+                            TextButton(onClick = {
+                                mostrarSelectorCiudades = !mostrarSelectorCiudades
+                            }) {
+                                Text("Cambiar ciudad (${ciudadesMismoPais.size})")
+                                Icon(
+                                    imageVector = if (mostrarSelectorCiudades)
+                                        Icons.Default.KeyboardArrowUp
+                                    else
+                                        Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null
+                                )
+                            }
+
+                            // ⭐ DESPLEGABLE DE CIUDADES
+                            if (mostrarSelectorCiudades) {
+
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+
+                                    ciudadesMismoPais.forEach { ciudad ->
+
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(6.dp)
+                                                .clickable {
+                                                    destinoSeleccionado = ciudad
+                                                    mostrarSelectorCiudades = false
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            elevation = CardDefaults.cardElevation(2.dp)
+                                        ) {
+                                            Column(Modifier.padding(12.dp)) {
+                                                Text(ciudad.nombre, style = MaterialTheme.typography.titleMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            // Si aún no se ha seleccionado destino → parar aquí
+            if (destinoSeleccionado == null) {
+                return@Column
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+
+            // ⭐ ⭐ ⭐
+            // 3️⃣ MOSTRAR TABS SOLO CUANDO YA HAY DESTINO
+            // ⭐ ⭐ ⭐
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -109,26 +258,15 @@ fun DestinosScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // 🔥 CONTENIDO SEGÚN TAB SELECCIONADA
             when (selectedTab) {
-
-                0 -> ActividadesList(
-                    destinoId = destinoSeleccionado!!.id,
-                    actividadDao = actividadDao
-                )
-
-                1 -> RestaurantesList(
-                    destinoId = destinoSeleccionado!!.id,
-                    restauranteDao = restauranteDao
-                )
-
-                2 -> TransportesList(
-                    destinoId = destinoSeleccionado!!.id,
-                    transporteDao = transporteDao
-                )
+                0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao)
+                1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao)
+                2 -> TransportesList(destinoSeleccionado!!.id, transporteDao)
             }
         }
     }
+
+
 }
 
 // ------------------------------------------------------------------
@@ -189,8 +327,8 @@ fun TripMateTopBar(
                         focusedIndicatorColor = Color.Transparent
                     ),
                     modifier = Modifier.fillMaxWidth()
-                        .height(0.dp)
                 )
+
             }
 
             IconButton(
@@ -235,6 +373,7 @@ fun ActividadesList(
     }
 }
 
+
 @Composable
 fun ActividadCardExpandable(
     actividad: ActividadEntity,
@@ -246,18 +385,34 @@ fun ActividadCardExpandable(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { expanded = !expanded },
+            .padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Título
-            Text(
-                actividad.descripcion ?: "Sin descripción",
-                style = MaterialTheme.typography.titleLarge
-            )
+            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    actividad.descripcion ?: "Sin descripción",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
 
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+
+            // EXPANDED CONTENT
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
 
@@ -313,13 +468,26 @@ fun RestauranteCardExpandable(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { expanded = !expanded },
+            .padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            Text(restaurante.nombre, style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(restaurante.nombre, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
 
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
@@ -376,15 +544,26 @@ fun TransporteCardExpandable(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { expanded = !expanded },
+            .padding(vertical = 8.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            Text("${transporte.tipo} - ${transporte.nombre ?: ""}",
-                style = MaterialTheme.typography.titleLarge
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("${transporte.tipo} - ${transporte.nombre ?: ""}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
 
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
@@ -408,4 +587,5 @@ fun TransporteCardExpandable(
         }
     }
 }
+
 
