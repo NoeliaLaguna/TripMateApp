@@ -75,15 +75,14 @@ fun Navegacion() {
         val actividadDao = database.actividadDao()
         val restauranteDao = database.restauranteDao()
         val transporteDao = database.transporteDao()
+        val lugarDao = database.lugarTuristicoDao()
         composable(Rutas.DESTINOS) {
             DestinosScreen(
                 destinoDao = destinoDao,
                 actividadDao = actividadDao,
                 restauranteDao = restauranteDao,
                 transporteDao = transporteDao,
-                onDestinoSeleccionado = { destinoId ->
-                    navController.navigate(Rutas.crearViaje(destinoId))
-                }
+                lugarDao = lugarDao
             )
         }
 

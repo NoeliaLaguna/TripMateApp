@@ -10,9 +10,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
+import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
+import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
@@ -32,6 +36,14 @@ import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import java.text.Normalizer
+import androidx.compose.runtime.rememberCoroutineScope
+import com.tripmateapp.BaseDatos.actividades.ActividadEntity
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Euro
+import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
+import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
+
 
 // --------------------------------------------------------------
 // 🔧 FUNCIÓN PARA NORMALIZAR (QUITAR ACENTOS Y MINUSCULIZAR)
@@ -51,13 +63,13 @@ fun DestinosScreen(
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    onDestinoSeleccionado: (Int) -> Unit
+    lugarDao: LugarTuristicoDao,
 ) {
     var query by remember { mutableStateOf("") }
 
     val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
 
-    var destinoSeleccionado by remember { mutableStateOf<DestinoEntity?>(null) }
+    var destinoIdSeleccionado by remember { mutableStateOf<Int?>(null) }
 
     var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
 
@@ -74,194 +86,44 @@ fun DestinosScreen(
                 query = query,
                 onQueryChange = { query = it },
                 onSearchClick = {
-                    val queryNorm = query.normalize()
-
-                    // 1️⃣ Buscar por ciudad
-                    val ciudades = destinos.filter { d ->
-                        d.nombre.normalize().contains(queryNorm)
+                    val encontrado = destinos.find {
+                        it.nombre.normalize().contains(query.normalize())
                     }
-
-                    destinoSeleccionado = when {
-                        ciudades.size == 1 -> ciudades.first()
-                        ciudades.size > 1 -> {
-                            opcionesFiltrado = ciudades
-                            null
-                        }
-                        else -> {
-                            // 2️⃣ Buscar por país
-                            val paises = destinos.filter { d ->
-                                d.pais.normalize().contains(queryNorm)
-                            }
-
-                            when {
-                                paises.size == 1 -> paises.first()
-                                paises.size > 1 -> {
-                                    opcionesFiltrado = paises
-                                    null
-                                }
-                                else -> null
-                            }
-                        }
-                    }
+                    destinoIdSeleccionado = encontrado?.id
+                    selectedTab = 0
                 }
             )
         }
     ) { innerPadding ->
 
+        // DESTINO ENCONTRADO → MOSTRAR TABS
         Column(modifier = Modifier.padding(innerPadding)) {
 
-            // ⭐ ⭐ ⭐
-            // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
-            // ⭐ ⭐ ⭐
-            if (opcionesFiltrado.isNotEmpty()) {
-
-                Text(
-                    "Hemos encontrado varias ciudades. Selecciona una:",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                LazyColumn {
-                    items(opcionesFiltrado) { destino ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clickable {
-                                    destinoSeleccionado = destino
-                                    opcionesFiltrado = emptyList()
-                                },
-                            elevation = CardDefaults.cardElevation(4.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
-                                Text(destino.pais, color = Color.Gray)
-                            }
-                        }
-                    }
-                }
-
-                return@Column
-            }
-
-            // ⭐ ⭐ ⭐
-            // 2️⃣ MOSTRAR INFO DEL DESTINO SELECCIONADO
-            // ⭐ ⭐ ⭐
-            destinoSeleccionado?.let { destino ->
-
-                // Buscar todas las ciudades del mismo país
-                val ciudadesMismoPais = destinos.filter { it.pais == destino.pais }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-
-                        // NOMBRE DEL DESTINO
-                        Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
-
-                        // PAÍS
-                        Text(destino.pais, color = Color.Gray)
-
-                        // DESCRIPCIÓN
-                        destino.descripcion?.let {
-                            Spacer(Modifier.height(6.dp))
-                            Text(it)
-                        }
-
-                        // ⭐ MOSTRAR BOTÓN SI HAY MÁS DE UNA CIUDAD
-                        if (ciudadesMismoPais.size > 1) {
-
-                            Spacer(Modifier.height(12.dp))
-
-                            TextButton(onClick = {
-                                mostrarSelectorCiudades = !mostrarSelectorCiudades
-                            }) {
-                                Text("Cambiar ciudad (${ciudadesMismoPais.size})")
-                                Icon(
-                                    imageVector = if (mostrarSelectorCiudades)
-                                        Icons.Default.KeyboardArrowUp
-                                    else
-                                        Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null
-                                )
-                            }
-
-                            // ⭐ DESPLEGABLE DE CIUDADES
-                            if (mostrarSelectorCiudades) {
-
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                ) {
-
-                                    ciudadesMismoPais.forEach { ciudad ->
-
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(6.dp)
-                                                .clickable {
-                                                    destinoSeleccionado = ciudad
-                                                    mostrarSelectorCiudades = false
-                                                },
-                                            shape = RoundedCornerShape(10.dp),
-                                            elevation = CardDefaults.cardElevation(2.dp)
-                                        ) {
-                                            Column(Modifier.padding(12.dp)) {
-                                                Text(ciudad.nombre, style = MaterialTheme.typography.titleMedium)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-
-            // Si aún no se ha seleccionado destino → parar aquí
-            if (destinoSeleccionado == null) {
-                return@Column
+            // ✅ LAS TABS SIEMPRE
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(selectedTab == 0, { selectedTab = 0 }) { Text("Lugares") }
+                Tab(selectedTab == 1, { selectedTab = 1 }) { Text("Actividades") }
+                Tab(selectedTab == 2, { selectedTab = 2 }) { Text("Restaurantes") }
+                Tab(selectedTab == 3, { selectedTab = 3 }) { Text("Transporte") }
             }
 
             Spacer(Modifier.height(12.dp))
 
-
-            // ⭐ ⭐ ⭐
-            // 3️⃣ MOSTRAR TABS SOLO CUANDO YA HAY DESTINO
-            // ⭐ ⭐ ⭐
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("Actividades") }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Restaurantes") }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = { Text("Transporte") }
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            when (selectedTab) {
-                0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao)
-                1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao)
-                2 -> TransportesList(destinoSeleccionado!!.id, transporteDao)
+            // ⬇️ SOLO el contenido depende del destino
+            if (destinoIdSeleccionado == null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Introduce un destino y pulsa buscar", color = Color.Gray)
+                }
+            } else {
+                when (selectedTab) {
+                    0 -> LugaresList(destinoIdSeleccionado!!, lugarDao, actividadDao)
+                    1 -> ActividadesList(destinoIdSeleccionado!!, actividadDao)
+                    2 -> RestaurantesList(destinoIdSeleccionado!!, restauranteDao, actividadDao)
+                    3 -> TransportesList(destinoIdSeleccionado!!, transporteDao, actividadDao)
+                }
             }
         }
     }
@@ -354,62 +216,76 @@ fun TripMateTopBar(
 @Composable
 fun ActividadesList(
     destinoId: Int,
-    actividadDao: ActividadDao,
-    onAddToItinerary: (ActividadEntity) -> Unit = {}
+    actividadDao: ActividadDao
 ) {
-    val actividades by actividadDao.getByDestino(destinoId).collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+
+    // 🔴 NUEVO → actividad a confirmar
+    var actividadAConfirmar by remember { mutableStateOf<ActividadEntity?>(null) }
+
+    val actividades by actividadDao
+        .getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
 
     if (actividades.isEmpty()) {
-        Text("No hay actividades disponibles", modifier = Modifier.padding(16.dp))
-    } else {
-        LazyColumn {
-            items(actividades) { actividad ->
-                ActividadCardExpandable(
-                    actividad = actividad,
-                    onAddToItinerary = onAddToItinerary
-                )
-            }
-        }
+        Text(
+            text = "No hay actividades disponibles",
+            modifier = Modifier.padding(16.dp)
+        )
+        return
     }
-}
 
+    LazyColumn {
+        items(actividades) { actividad ->
 
-@Composable
-fun ActividadCardExpandable(
-    actividad: ActividadEntity,
-    onAddToItinerary: (ActividadEntity) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
-            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
-            Row(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .toggleable(
-                        value = expanded,
-                        onValueChange = { expanded = it }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(6.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    actividad.descripcion ?: "Sin descripción",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.padding(16.dp)) {
 
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null
-                )
+                    // ─── TÍTULO + BOTÓN + ───
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Text(
+                            text = actividad.tipoActividad,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        IconButton(
+                            onClick = { actividadAConfirmar = actividad }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Añadir al itinerario"
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // ─── DESCRIPCIÓN ───
+                    Text(
+                        text = actividad.descripcion ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // ─── ORDEN ───
+                    Text(
+                        text = "Orden del día: ${actividad.orden}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
 
             // EXPANDED CONTENT
@@ -436,6 +312,48 @@ fun ActividadCardExpandable(
             }
         }
     }
+
+    // ─────────────────────────────
+    // 🪟 DIÁLOGO DE CONFIRMACIÓN
+    // ─────────────────────────────
+    actividadAConfirmar?.let { actividad ->
+
+        AlertDialog(
+            onDismissRequest = {
+                actividadAConfirmar = null
+            },
+            title = {
+                Text("Añadir actividad")
+            },
+            text = {
+                Text("¿Quieres añadir esta actividad a tu itinerario?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            actividadDao.insert(
+                                actividad.copy(
+                                    id = 0,
+                                    idItinerarioDia = null
+                                )
+                            )
+                        }
+                        actividadAConfirmar = null
+                    }
+                ) {
+                    Text("Añadir")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { actividadAConfirmar = null }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 
@@ -443,75 +361,114 @@ fun ActividadCardExpandable(
 fun RestaurantesList(
     destinoId: Int,
     restauranteDao: RestauranteDao,
-    onAddToItinerary: (RestauranteEntity) -> Unit = {}
+    actividadDao: ActividadDao
 ) {
-    val restaurantes by restauranteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+    var restauranteAConfirmar by remember { mutableStateOf<RestauranteEntity?>(null) }
+
+    val restaurantes by restauranteDao
+        .getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
 
     LazyColumn {
         items(restaurantes) { rest ->
-            RestauranteCardExpandable(
-                restaurante = rest,
-                onAddToItinerary = onAddToItinerary
-            )
-        }
-    }
-}
 
-@Composable
-fun RestauranteCardExpandable(
-    restaurante: RestauranteEntity,
-    onAddToItinerary: (RestauranteEntity) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
+            val valoracionSegura = rest.puntuacionMedia ?: 0.0
 
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
-            Row(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .toggleable(
-                        value = expanded,
-                        onValueChange = { expanded = it }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(6.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(restaurante.nombre, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null
-                )
-            }
+                Column(modifier = Modifier.padding(16.dp)) {
 
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
+                    // ─── NOMBRE + PLUS ───
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = rest.nombre,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { restauranteAConfirmar = rest }) {
+                            Icon(Icons.Default.Add, contentDescription = "Añadir")
+                        }
+                    }
 
-                Text("Ubicación: ${restaurante.ubicacion}")
-                Text("Tipo de comida: ${restaurante.tipoComida}")
-                Text("Puntuación: ${restaurante.puntuacionMedia}")
-                Text("Horario: ${restaurante.horarioApertura}")
-                Text("Precio: ${restaurante.rangoPrecio}")
+                    Text(
+                        text = rest.tipoComida,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
 
-                Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
 
-                Button(
-                    onClick = {
-                        onAddToItinerary(restaurante)
-                        expanded = false
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Añadir a itinerario")
+                    // ⭐ ESTRELLAS
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        repeat(5) { index ->
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (index < valoracionSegura.toInt())
+                                    Color(0xFFFFC107)
+                                else Color.LightGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(valoracionSegura.toString())
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 💰 PRECIO
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Euro,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(rest.rangoPrecio)
+                    }
                 }
             }
         }
+    }
+
+    // 🪟 DIÁLOGO
+    restauranteAConfirmar?.let { rest ->
+        AlertDialog(
+            onDismissRequest = { restauranteAConfirmar = null },
+            title = { Text("Añadir restaurante") },
+            text = { Text("¿Quieres añadir ${rest.nombre} a tu itinerario?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        actividadDao.insert(
+                            ActividadEntity(
+                                id = 0,
+                                idItinerarioDia = null,
+                                destinoId = destinoId,
+                                tipoActividad = "Gastronomía",
+                                orden = 999,
+                                descripcion = "Comer en ${rest.nombre}",
+                                horaInicio = null,
+                                horaFin = null
+                            )
+                        )
+                    }
+                    restauranteAConfirmar = null
+                }) { Text("Añadir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { restauranteAConfirmar = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
@@ -520,17 +477,90 @@ fun RestauranteCardExpandable(
 fun TransportesList(
     destinoId: Int,
     transporteDao: TransporteDao,
-    onAddToItinerary: (TransporteEntity) -> Unit = {}
+    actividadDao: ActividadDao
 ) {
-    val transportes by transporteDao.getByDestino(destinoId).collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+    var transporteAConfirmar by remember { mutableStateOf<TransporteEntity?>(null) }
+
+    val transportes by transporteDao
+        .getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
 
     LazyColumn {
         items(transportes) { tr ->
-            TransporteCardExpandable(
-                transporte = tr,
-                onAddToItinerary = onAddToItinerary
-            )
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(6.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${tr.tipo} - ${tr.nombre ?: ""}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { transporteAConfirmar = tr }) {
+                            Icon(Icons.Default.Add, contentDescription = "Añadir")
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text("Horario: ${tr.horario}")
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Euro,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("${tr.precio} €")
+                    }
+                }
+            }
         }
+    }
+
+    // 🪟 DIÁLOGO
+    transporteAConfirmar?.let { tr ->
+        AlertDialog(
+            onDismissRequest = { transporteAConfirmar = null },
+            title = { Text("Añadir transporte") },
+            text = { Text("¿Quieres añadir ${tr.tipo} ${tr.nombre ?: ""} a tu itinerario?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        actividadDao.insert(
+                            ActividadEntity(
+                                id = 0,
+                                idItinerarioDia = null,
+                                destinoId = destinoId,
+                                tipoActividad = "Transporte",
+                                orden = 999,
+                                descripcion = "${tr.tipo} - ${tr.nombre}",
+                                horaInicio = null,
+                                horaFin = null
+                            )
+                        )
+                    }
+                    transporteAConfirmar = null
+                }) { Text("Añadir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { transporteAConfirmar = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 @Composable
@@ -589,3 +619,151 @@ fun TransporteCardExpandable(
 }
 
 
+
+@Composable
+fun LugaresList(
+    destinoId: Int,
+    lugarDao: LugarTuristicoDao,
+    actividadDao: ActividadDao
+) {
+    val scope = rememberCoroutineScope()
+
+    // 🔴 NUEVO → lugar pendiente de confirmación
+    var lugarAConfirmar by remember { mutableStateOf<LugarTuristicoEntity?>(null) }
+
+    val lugares by lugarDao
+        .getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
+
+    if (lugares.isEmpty()) {
+        Text(
+            text = "No hay lugares disponibles",
+            modifier = Modifier.padding(16.dp)
+        )
+        return
+    }
+
+    LazyColumn {
+        items(lugares) { lugar ->
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(6.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    // ───── FILA SUPERIOR (NOMBRE + BOTÓN +) ─────
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Text(
+                            text = lugar.nombre,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // ➕ BOTÓN DISCRETO
+                        IconButton(
+                            onClick = {
+                                lugarAConfirmar = lugar
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Añadir al itinerario"
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // ───── DESCRIPCIÓN ─────
+                    Text(
+                        text = lugar.descripcion ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // ───── ESTRELLAS + VALORACIÓN ─────
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val valoracionSegura = lugar.valoracion ?: 0.0
+
+                        repeat(5) { index ->
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (index < valoracionSegura.toInt())
+                                    Color(0xFFFFC107)
+                                else Color.LightGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = lugar.valoracion.toString(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // ─────────────────────────────────────
+    // 🪟 DIÁLOGO DE CONFIRMACIÓN
+    // ─────────────────────────────────────
+    lugarAConfirmar?.let { lugar ->
+
+        AlertDialog(
+            onDismissRequest = {
+                lugarAConfirmar = null
+            },
+            title = {
+                Text("Añadir al itinerario")
+            },
+            text = {
+                Text("¿Quieres añadir ${lugar.nombre} a tu itinerario?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            actividadDao.insert(
+                                ActividadEntity(
+                                    id = 0,
+                                    idItinerarioDia = null,
+                                    destinoId = destinoId,
+                                    tipoActividad = "Turismo",
+                                    orden = 999,
+                                    descripcion = lugar.descripcion ?: lugar.nombre,
+                                    horaInicio = null,
+                                    horaFin = null
+                                )
+                            )
+                        }
+                        lugarAConfirmar = null
+                    }
+                ) {
+                    Text("Añadir")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { lugarAConfirmar = null }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
