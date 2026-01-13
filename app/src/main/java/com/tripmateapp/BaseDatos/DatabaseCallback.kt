@@ -8,6 +8,7 @@ import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 class DatabaseCallback(
@@ -26,8 +27,33 @@ class DatabaseCallback(
             insertarLugares(database)
             insertarRestaurantes(database)
             insertarTransportes(database)
+            insertarActividades(database)
+        }
+    }*/
+
+
+    override fun onOpen(db: SupportSQLiteDatabase) {
+        super.onOpen(db)
+
+        scope.launch {
+            val database = dbProvider()
+
+            if (database.destinoDao().count() == 0) {
+                Log.d("NOELIA", "BD vacía, insertando seed")
+
+                insertarDestinos(database)
+
+                val destinos = database.destinoDao().getAll()
+
+                insertarLugaresTuristicos(database, destinos)
+                insertarRestaurantes(database, destinos)
+                insertarTransportes(database, destinos)
+                insertarActividades(database, destinos)
+            }
         }
     }
+
+
 }
 
 /* ===========================
@@ -44,6 +70,12 @@ private suspend fun insertarDestinos(db: AppDatabase) {
             ),
             DestinoEntity(
                 nombre = "Roma",
+                pais = "Italia",
+                descripcion = "Historia milenaria",
+                coordenadas = "41.9028,12.4964"
+            ),
+            DestinoEntity(
+                nombre = "Florencia",
                 pais = "Italia",
                 descripcion = "Historia milenaria",
                 coordenadas = "41.9028,12.4964"

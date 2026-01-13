@@ -29,7 +29,10 @@ object DatabaseProvider {
 
     fun getDatabase(context: Context): AppDatabase {
         return INSTANCE ?: synchronized(this) {
-            val instance = Room.databaseBuilder(
+
+            lateinit var instance: AppDatabase
+
+            instance = Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,
                 "tripmate_db"
@@ -37,7 +40,7 @@ object DatabaseProvider {
                 .addCallback(
                     DatabaseCallback(
                         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-                        dbProvider = { INSTANCE!! }
+                        dbProvider = { instance }
                     )
                 )
                 .fallbackToDestructiveMigration()
@@ -48,3 +51,6 @@ object DatabaseProvider {
         }
     }
 }
+
+
+

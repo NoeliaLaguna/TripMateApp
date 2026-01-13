@@ -6,10 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -20,14 +23,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
+import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
+import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
+import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import java.text.Normalizer
 import androidx.compose.runtime.rememberCoroutineScope
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
@@ -60,9 +67,15 @@ fun DestinosScreen(
 ) {
     var query by remember { mutableStateOf("") }
 
-    val destinos by destinoDao.getAll().collectAsState(initial = emptyList())
+    val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
 
     var destinoIdSeleccionado by remember { mutableStateOf<Int?>(null) }
+
+    var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
+
+    var mostrarSelectorCiudades by remember { mutableStateOf(false) }
+
+
 
     // Tabs seleccionadas
     var selectedTab by remember { mutableStateOf(0) }
@@ -114,6 +127,8 @@ fun DestinosScreen(
             }
         }
     }
+
+
 }
 
 // ------------------------------------------------------------------
@@ -132,11 +147,14 @@ fun TripMateTopBar(
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 40.dp, top = 15.dp)
+
+                .fillMaxWidth()) {
             Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
+                painter = painterResource(R.drawable.logo_tripmate),
                 contentDescription = "Logo TripMate",
-                modifier = Modifier.height(40.dp)
+                modifier = Modifier.height(60.dp)
             )
         }
 
@@ -150,13 +168,15 @@ fun TripMateTopBar(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Column(modifier = Modifier.weight(0.5f)) {
+            Text(
+                text = "Destino:",
+                color = Color.Gray,
+                style = MaterialTheme.typography.labelMedium
+            )}
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Destino",
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.labelMedium
-                )
+            Column(modifier = Modifier.weight(2f)) {
+
 
                 TextField(
                     value = query,
@@ -170,6 +190,7 @@ fun TripMateTopBar(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+
             }
 
             IconButton(
@@ -264,6 +285,29 @@ fun ActividadesList(
                         text = "Orden del día: ${actividad.orden}",
                         style = MaterialTheme.typography.bodySmall
                     )
+                }
+            }
+
+            // EXPANDED CONTENT
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Tipo de actividad: ${actividad.tipoActividad}")
+                Text("Inicio: ${actividad.horaInicio ?: "-"}")
+                Text("Fin: ${actividad.horaFin ?: "-"}")
+                Text("Orden sugerido: ${actividad.orden}")
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        onAddToItinerary(actividad)
+                        expanded = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
                 }
             }
         }
@@ -519,6 +563,61 @@ fun TransportesList(
         )
     }
 }
+@Composable
+fun TransporteCardExpandable(
+    transporte: TransporteEntity,
+    onAddToItinerary: (TransporteEntity) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("${transporte.tipo} - ${transporte.nombre ?: ""}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Horario: ${transporte.horario ?: "-"}")
+                Text("Precio: ${transporte.precio ?: "-"}")
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        onAddToItinerary(transporte)
+                        expanded = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+}
+
 
 
 @Composable
