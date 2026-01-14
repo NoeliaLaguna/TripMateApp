@@ -1,5 +1,7 @@
 package com.tripmateapp
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,11 +12,9 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
-import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
@@ -36,13 +35,29 @@ import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
 import java.text.Normalizer
-import androidx.compose.runtime.rememberCoroutineScope
-import com.tripmateapp.BaseDatos.actividades.ActividadEntity
-import kotlinx.coroutines.launch
-import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.Euro
-import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
-import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
+
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun generarDiasViaje(
+    fechaInicio: Long,
+    fechaFin: Long
+): List<LocalDate> {
+
+    val start = Instant.ofEpochMilli(fechaInicio)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+
+    val end = Instant.ofEpochMilli(fechaFin)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+
+    return generateSequence(start) { it.plusDays(1) }
+        .takeWhile { !it.isAfter(end) }
+        .toList()
+}
 
 
 // --------------------------------------------------------------
@@ -57,28 +72,105 @@ fun String.normalize(): String {
 // ------------------------------------------------------------------
 //                  PANTALLA PRINCIPAL DE DESTINOS
 // ------------------------------------------------------------------
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DestinosScreen(
     destinoDao: DestinoDao,
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    lugarDao: LugarTuristicoDao,
+    lugarTuristicoDao: LugarTuristicoDao
 ) {
     var query by remember { mutableStateOf("") }
 
     val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
 
-    var destinoIdSeleccionado by remember { mutableStateOf<Int?>(null) }
+    var destinoSeleccionado by remember { mutableStateOf<DestinoEntity?>(null) }
 
     var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
 
     var mostrarSelectorCiudades by remember { mutableStateOf(false) }
 
+    // 📅 FECHAS DEL VIAJE
+    var fechaInicio by remember { mutableStateOf<Long?>(null) }
+    var fechaFin by remember { mutableStateOf<Long?>(null) }
+
+    var mostrarDatePickerInicio by remember { mutableStateOf(false) }
+    var mostrarDatePickerFin by remember { mutableStateOf(false) }
 
 
     // Tabs seleccionadas
     var selectedTab by remember { mutableStateOf(0) }
+
+    val diasViaje = remember(fechaInicio, fechaFin) {
+        if (fechaInicio != null && fechaFin != null) {
+            generarDiasViaje(fechaInicio!!, fechaFin!!)
+        } else {
+            emptyList()
+        }
+    }
+
+
+    if (fechaInicio != null && fechaFin != null) {
+        when (selectedTab) {
+            0 -> ActividadesList(
+                destinoSeleccionado!!.id,
+                actividadDao,
+                diasViaje
+            )
+            1 -> RestaurantesList(
+                destinoSeleccionado!!.id,
+                restauranteDao,
+                diasViaje
+            )
+            2 -> TransportesList(
+                destinoSeleccionado!!.id,
+                transporteDao,
+                diasViaje
+            )
+        }
+    }
+
+
+
+
+
+// --------------------
+// DATE PICKERS
+// --------------------
+    if (mostrarDatePickerInicio) {
+        val datePickerState = rememberDatePickerState()
+
+        DatePickerDialog(
+            onDismissRequest = { mostrarDatePickerInicio = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    fechaInicio = datePickerState.selectedDateMillis
+                    mostrarDatePickerInicio = false
+                }) { Text("Aceptar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (mostrarDatePickerFin) {
+        val datePickerState = rememberDatePickerState()
+
+        DatePickerDialog(
+            onDismissRequest = { mostrarDatePickerFin = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    fechaFin = datePickerState.selectedDateMillis
+                    mostrarDatePickerFin = false
+                }) { Text("Aceptar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
 
     Scaffold(
         topBar = {
@@ -86,44 +178,265 @@ fun DestinosScreen(
                 query = query,
                 onQueryChange = { query = it },
                 onSearchClick = {
-                    val encontrado = destinos.find {
-                        it.nombre.normalize().contains(query.normalize())
+                    val queryNorm = query.normalize()
+
+                    // 1️⃣ Buscar por ciudad
+                    val ciudades = destinos.filter { d ->
+                        d.nombre.normalize().contains(queryNorm)
                     }
-                    destinoIdSeleccionado = encontrado?.id
-                    selectedTab = 0
+
+                    destinoSeleccionado = when {
+                        ciudades.size == 1 -> ciudades.first()
+                        ciudades.size > 1 -> {
+                            opcionesFiltrado = ciudades
+                            null
+                        }
+
+                        else -> {
+                            // 2️⃣ Buscar por país
+                            val paises = destinos.filter { d ->
+                                d.pais.normalize().contains(queryNorm)
+                            }
+
+                            when {
+                                paises.size == 1 -> paises.first()
+                                paises.size > 1 -> {
+                                    opcionesFiltrado = paises
+                                    null
+                                }
+
+                                else -> null
+                            }
+                        }
+                    }
                 }
             )
         }
     ) { innerPadding ->
 
-        // DESTINO ENCONTRADO → MOSTRAR TABS
         Column(modifier = Modifier.padding(innerPadding)) {
 
-            // ✅ LAS TABS SIEMPRE
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selectedTab == 0, { selectedTab = 0 }) { Text("Lugares") }
-                Tab(selectedTab == 1, { selectedTab = 1 }) { Text("Actividades") }
-                Tab(selectedTab == 2, { selectedTab = 2 }) { Text("Restaurantes") }
-                Tab(selectedTab == 3, { selectedTab = 3 }) { Text("Transporte") }
+            // ⭐ ⭐ ⭐
+            // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
+            // ⭐ ⭐ ⭐
+            if (opcionesFiltrado.isNotEmpty()) {
+
+                Text(
+                    "Hemos encontrado varias ciudades. Selecciona una:",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                LazyColumn {
+                    items(opcionesFiltrado) { destino ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    destinoSeleccionado = destino
+                                    opcionesFiltrado = emptyList()
+                                },
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+                                Text(destino.pais, color = Color.Gray)
+                            }
+                        }
+                    }
+                }
+
+                return@Column
+            }
+
+            // ⭐ ⭐ ⭐
+            // 2️⃣ MOSTRAR INFO DEL DESTINO SELECCIONADO
+            // ⭐ ⭐ ⭐
+            destinoSeleccionado?.let { destino ->
+
+                // Buscar todas las ciudades del mismo país
+                val ciudadesMismoPais = destinos.filter { it.pais == destino.pais }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+
+                        // NOMBRE DEL DESTINO
+                        Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+
+                        // PAÍS
+                        Text(destino.pais, color = Color.Gray)
+
+                        // DESCRIPCIÓN
+                        destino.descripcion?.let {
+                            Spacer(Modifier.height(6.dp))
+                            Text(it)
+                        }
+
+                        // ⭐ MOSTRAR BOTÓN SI HAY MÁS DE UNA CIUDAD
+                        if (ciudadesMismoPais.size > 1) {
+
+                            Spacer(Modifier.height(12.dp))
+
+                            TextButton(onClick = {
+                                mostrarSelectorCiudades = !mostrarSelectorCiudades
+                            }) {
+                                Text("Cambiar ciudad (${ciudadesMismoPais.size})")
+                                Icon(
+                                    imageVector = if (mostrarSelectorCiudades)
+                                        Icons.Default.KeyboardArrowUp
+                                    else
+                                        Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null
+                                )
+                            }
+
+                            // ⭐ DESPLEGABLE DE CIUDADES
+                            if (mostrarSelectorCiudades) {
+
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+
+                                    ciudadesMismoPais.forEach { ciudad ->
+
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(6.dp)
+                                                .clickable {
+                                                    destinoSeleccionado = ciudad
+                                                    mostrarSelectorCiudades = false
+                                                },
+                                            shape = RoundedCornerShape(10.dp),
+                                            elevation = CardDefaults.cardElevation(2.dp)
+                                        ) {
+                                            Column(Modifier.padding(12.dp)) {
+                                                Text(
+                                                    ciudad.nombre,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+// ⭐ ⭐ ⭐
+// 2️⃣ BIS – SELECCIÓN DE FECHAS
+// ⭐ ⭐ ⭐
+            destinoSeleccionado?.let {
+
+                Spacer(Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+
+                        Text("Fechas del viaje", style = MaterialTheme.typography.titleMedium)
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+
+                            OutlinedButton(
+                                onClick = { mostrarDatePickerInicio = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    fechaInicio?.let {
+                                        "Inicio: ${
+                                            java.text.SimpleDateFormat("dd/MM/yyyy")
+                                                .format(it)
+                                        }"
+                                    } ?: "Fecha inicio"
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = { mostrarDatePickerFin = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    fechaFin?.let {
+                                        "Fin: ${
+                                            java.text.SimpleDateFormat("dd/MM/yyyy")
+                                                .format(it)
+                                        }"
+                                    } ?: "Fecha fin"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            // Si aún no se ha seleccionado destino → parar aquí
+            if (destinoSeleccionado == null) {
+                return@Column
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // ⬇️ SOLO el contenido depende del destino
-            if (destinoIdSeleccionado == null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Introduce un destino y pulsa buscar", color = Color.Gray)
-                }
-            } else {
-                when (selectedTab) {
-                    0 -> LugaresList(destinoIdSeleccionado!!, lugarDao, actividadDao)
-                    1 -> ActividadesList(destinoIdSeleccionado!!, actividadDao)
-                    2 -> RestaurantesList(destinoIdSeleccionado!!, restauranteDao, actividadDao)
-                    3 -> TransportesList(destinoIdSeleccionado!!, transporteDao, actividadDao)
-                }
+            if (fechaInicio == null || fechaFin == null) {
+                Text(
+                    "Selecciona las fechas del viaje para continuar",
+                    modifier = Modifier.padding(16.dp),
+                    color = Color.Gray
+                )
+                return@Column
+            }
+
+
+            // ⭐ ⭐ ⭐
+            // 3️⃣ MOSTRAR TABS SOLO CUANDO YA HAY DESTINO
+            // ⭐ ⭐ ⭐
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("Actividades") }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("Restaurantes") }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text("Transporte") }
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            when (selectedTab) {
+                0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao, diasViaje = diasViaje)
+                1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao, diasViaje = diasViaje)
+                2 -> TransportesList(destinoSeleccionado!!.id, transporteDao, diasViaje = diasViaje)
             }
         }
     }
@@ -147,10 +460,13 @@ fun TripMateTopBar(
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
 
-        Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 40.dp, top = 15.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(start = 40.dp, top = 15.dp)
 
-                .fillMaxWidth()) {
+                .fillMaxWidth()
+        ) {
             Image(
                 painter = painterResource(R.drawable.logo_tripmate),
                 contentDescription = "Logo TripMate",
@@ -169,11 +485,12 @@ fun TripMateTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(0.5f)) {
-            Text(
-                text = "Destino:",
-                color = Color.Gray,
-                style = MaterialTheme.typography.labelMedium
-            )}
+                Text(
+                    text = "Destino:",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
 
             Column(modifier = Modifier.weight(2f)) {
 
@@ -216,76 +533,67 @@ fun TripMateTopBar(
 @Composable
 fun ActividadesList(
     destinoId: Int,
-    actividadDao: ActividadDao
+    actividadDao: ActividadDao,
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (ActividadEntity, LocalDate) -> Unit = { _, _ -> }
 ) {
-    val scope = rememberCoroutineScope()
-
-    // 🔴 NUEVO → actividad a confirmar
-    var actividadAConfirmar by remember { mutableStateOf<ActividadEntity?>(null) }
-
-    val actividades by actividadDao
-        .getByDestino(destinoId)
+    val actividades by actividadDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
-
-    if (actividades.isEmpty()) {
-        Text(
-            text = "No hay actividades disponibles",
-            modifier = Modifier.padding(16.dp)
-        )
-        return
-    }
 
     LazyColumn {
         items(actividades) { actividad ->
+            ActividadCardExpandable(
+                actividad = actividad,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
+        }
+    }
+}
 
-            Card(
+
+
+@Composable
+fun ActividadCardExpandable(
+    actividad: ActividadEntity,
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (ActividadEntity, LocalDate) -> Unit
+) {
+
+    var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(6.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    actividad.descripcion ?: "Sin descripción",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
 
-                    // ─── TÍTULO + BOTÓN + ───
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        Text(
-                            text = actividad.tipoActividad,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        IconButton(
-                            onClick = { actividadAConfirmar = actividad }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Añadir al itinerario"
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // ─── DESCRIPCIÓN ───
-                    Text(
-                        text = actividad.descripcion ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // ─── ORDEN ───
-                    Text(
-                        text = "Orden del día: ${actividad.orden}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
             }
 
             // EXPANDED CONTENT
@@ -301,59 +609,71 @@ fun ActividadesList(
 
                 Button(
                     onClick = {
-                        onAddToItinerary(actividad)
-                        expanded = false
+                        mostrarDialogoDias = true
                     },
                     modifier = Modifier.align(Alignment.End),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Añadir a itinerario")
                 }
+
             }
         }
     }
 
-    // ─────────────────────────────
-    // 🪟 DIÁLOGO DE CONFIRMACIÓN
-    // ─────────────────────────────
-    actividadAConfirmar?.let { actividad ->
-
+    if (mostrarDialogoDias) {
         AlertDialog(
-            onDismissRequest = {
-                actividadAConfirmar = null
-            },
-            title = {
-                Text("Añadir actividad")
-            },
-            text = {
-                Text("¿Quieres añadir esta actividad a tu itinerario?")
-            },
+            onDismissRequest = { mostrarDialogoDias = false },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch {
-                            actividadDao.insert(
-                                actividad.copy(
-                                    id = 0,
-                                    idItinerarioDia = null
-                                )
-                            )
+                        diaSeleccionado?.let {
+                            onAddToItinerary(actividad, it)
+                            mostrarDialogoDias = false
+                            expanded = false
                         }
-                        actividadAConfirmar = null
-                    }
+                    },
+                    enabled = diaSeleccionado != null
                 ) {
-                    Text("Añadir")
+                    Text("Confirmar")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { actividadAConfirmar = null }
-                ) {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
                     Text("Cancelar")
+                }
+            },
+            title = { Text("¿Qué día quieres añadirla?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
+
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { diaSeleccionado = dia }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { diaSeleccionado = dia }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
                 }
             }
         )
     }
+
 }
 
 
@@ -361,214 +681,180 @@ fun ActividadesList(
 fun RestaurantesList(
     destinoId: Int,
     restauranteDao: RestauranteDao,
-    actividadDao: ActividadDao
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (RestauranteEntity, LocalDate) -> Unit = { _, _ -> }
 ) {
-    val scope = rememberCoroutineScope()
-    var restauranteAConfirmar by remember { mutableStateOf<RestauranteEntity?>(null) }
-
-    val restaurantes by restauranteDao
-        .getByDestino(destinoId)
+    val restaurantes by restauranteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
     LazyColumn {
         items(restaurantes) { rest ->
+            RestauranteCardExpandable(
+                restaurante = rest,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
+        }
+    }
+}
 
-            val valoracionSegura = rest.puntuacionMedia ?: 0.0
 
-            Card(
+@Composable
+fun RestauranteCardExpandable(
+    restaurante: RestauranteEntity,
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (RestauranteEntity, LocalDate) -> Unit
+)
+ {
+     var expanded by remember { mutableStateOf(false) }
+     var mostrarDialogoDias by remember { mutableStateOf(false) }
+     var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
+
+     Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(6.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    restaurante.nombre,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
 
-                    // ─── NOMBRE + PLUS ───
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = rest.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { restauranteAConfirmar = rest }) {
-                            Icon(Icons.Default.Add, contentDescription = "Añadir")
-                        }
-                    }
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
 
-                    Text(
-                        text = rest.tipoComida,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
+                Text("Ubicación: ${restaurante.ubicacion}")
+                Text("Tipo de comida: ${restaurante.tipoComida}")
+                Text("Puntuación: ${restaurante.puntuacionMedia}")
+                Text("Horario: ${restaurante.horarioApertura}")
+                Text("Precio: ${restaurante.rangoPrecio}")
 
-                    Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
 
-                    // ⭐ ESTRELLAS
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        repeat(5) { index ->
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = if (index < valoracionSegura.toInt())
-                                    Color(0xFFFFC107)
-                                else Color.LightGray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(valoracionSegura.toString())
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // 💰 PRECIO
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Euro,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.Gray
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(rest.rangoPrecio)
-                    }
+                Button(
+                    onClick = {
+                        mostrarDialogoDias = true
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
                 }
+
             }
         }
     }
 
-    // 🪟 DIÁLOGO
-    restauranteAConfirmar?.let { rest ->
-        AlertDialog(
-            onDismissRequest = { restauranteAConfirmar = null },
-            title = { Text("Añadir restaurante") },
-            text = { Text("¿Quieres añadir ${rest.nombre} a tu itinerario?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        actividadDao.insert(
-                            ActividadEntity(
-                                id = 0,
-                                idItinerarioDia = null,
-                                destinoId = destinoId,
-                                tipoActividad = "Gastronomía",
-                                orden = 999,
-                                descripcion = "Comer en ${rest.nombre}",
-                                horaInicio = null,
-                                horaFin = null
-                            )
-                        )
-                    }
-                    restauranteAConfirmar = null
-                }) { Text("Añadir") }
-            },
-            dismissButton = {
-                TextButton(onClick = { restauranteAConfirmar = null }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
-}
+     if (mostrarDialogoDias) {
+         AlertDialog(
+             onDismissRequest = { mostrarDialogoDias = false },
+             title = { Text("¿Qué día quieres añadirlo?") },
+             text = {
+                 if (diasViaje.isEmpty()) {
+                     Text("No hay días disponibles")
+                     return@AlertDialog
+                 }
+
+                 Column {
+                     diasViaje.forEach { dia ->
+                         Row(
+                             modifier = Modifier
+                                 .fillMaxWidth()
+                                 .clickable { diaSeleccionado = dia }
+                                 .padding(8.dp),
+                             verticalAlignment = Alignment.CenterVertically
+                         ) {
+                             RadioButton(
+                                 selected = diaSeleccionado == dia,
+                                 onClick = { diaSeleccionado = dia }
+                             )
+                             Text(
+                                 dia.toString(),
+                                 modifier = Modifier.padding(start = 8.dp)
+                             )
+                         }
+                     }
+                 }
+             },
+             confirmButton = {
+                 TextButton(
+                     onClick = {
+                         diaSeleccionado?.let {
+                             onAddToItinerary(restaurante, it) // o transporte
+                             mostrarDialogoDias = false
+                             expanded = false
+                         }
+                     },
+                     enabled = diaSeleccionado != null
+                 ) {
+                     Text("Confirmar")
+                 }
+             },
+             dismissButton = {
+                 TextButton(onClick = { mostrarDialogoDias = false }) {
+                     Text("Cancelar")
+                 }
+             }
+         )
+     }
+
+ }
 
 
 @Composable
 fun TransportesList(
     destinoId: Int,
     transporteDao: TransporteDao,
-    actividadDao: ActividadDao
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (TransporteEntity, LocalDate) -> Unit = { _, _ -> }
 ) {
-    val scope = rememberCoroutineScope()
-    var transporteAConfirmar by remember { mutableStateOf<TransporteEntity?>(null) }
-
-    val transportes by transporteDao
-        .getByDestino(destinoId)
+    val transportes by transporteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
     LazyColumn {
         items(transportes) { tr ->
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(6.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "${tr.tipo} - ${tr.nombre ?: ""}",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { transporteAConfirmar = tr }) {
-                            Icon(Icons.Default.Add, contentDescription = "Añadir")
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Text("Horario: ${tr.horario}")
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Euro,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.Gray
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text("${tr.precio} €")
-                    }
-                }
-            }
+            TransporteCardExpandable(
+                transporte = tr,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
         }
     }
-
-    // 🪟 DIÁLOGO
-    transporteAConfirmar?.let { tr ->
-        AlertDialog(
-            onDismissRequest = { transporteAConfirmar = null },
-            title = { Text("Añadir transporte") },
-            text = { Text("¿Quieres añadir ${tr.tipo} ${tr.nombre ?: ""} a tu itinerario?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        actividadDao.insert(
-                            ActividadEntity(
-                                id = 0,
-                                idItinerarioDia = null,
-                                destinoId = destinoId,
-                                tipoActividad = "Transporte",
-                                orden = 999,
-                                descripcion = "${tr.tipo} - ${tr.nombre}",
-                                horaInicio = null,
-                                horaFin = null
-                            )
-                        )
-                    }
-                    transporteAConfirmar = null
-                }) { Text("Añadir") }
-            },
-            dismissButton = {
-                TextButton(onClick = { transporteAConfirmar = null }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
 }
+
+
 @Composable
 fun TransporteCardExpandable(
     transporte: TransporteEntity,
-    onAddToItinerary: (TransporteEntity) -> Unit
-) {
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (TransporteEntity, LocalDate) -> Unit
+)
+{
+
     var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -588,7 +874,11 @@ fun TransporteCardExpandable(
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("${transporte.tipo} - ${transporte.nombre ?: ""}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Text(
+                    "${transporte.tipo} - ${transporte.nombre ?: ""}",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null
@@ -605,165 +895,72 @@ fun TransporteCardExpandable(
 
                 Button(
                     onClick = {
-                        onAddToItinerary(transporte)
-                        expanded = false
+                        mostrarDialogoDias = true
                     },
                     modifier = Modifier.align(Alignment.End),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Añadir a itinerario")
                 }
+
             }
         }
     }
-}
 
+    if (mostrarDialogoDias) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDias = false },
+            title = { Text("¿Qué día quieres añadirlo?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
 
-
-@Composable
-fun LugaresList(
-    destinoId: Int,
-    lugarDao: LugarTuristicoDao,
-    actividadDao: ActividadDao
-) {
-    val scope = rememberCoroutineScope()
-
-    // 🔴 NUEVO → lugar pendiente de confirmación
-    var lugarAConfirmar by remember { mutableStateOf<LugarTuristicoEntity?>(null) }
-
-    val lugares by lugarDao
-        .getByDestino(destinoId)
-        .collectAsState(initial = emptyList())
-
-    if (lugares.isEmpty()) {
-        Text(
-            text = "No hay lugares disponibles",
-            modifier = Modifier.padding(16.dp)
-        )
-        return
-    }
-
-    LazyColumn {
-        items(lugares) { lugar ->
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(6.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-
-                Column(modifier = Modifier.padding(16.dp)) {
-
-                    // ───── FILA SUPERIOR (NOMBRE + BOTÓN +) ─────
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        Text(
-                            text = lugar.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        // ➕ BOTÓN DISCRETO
-                        IconButton(
-                            onClick = {
-                                lugarAConfirmar = lugar
-                            }
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { diaSeleccionado = dia }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Añadir al itinerario"
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { diaSeleccionado = dia }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // ───── DESCRIPCIÓN ─────
-                    Text(
-                        text = lugar.descripcion ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // ───── ESTRELLAS + VALORACIÓN ─────
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val valoracionSegura = lugar.valoracion ?: 0.0
-
-                        repeat(5) { index ->
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = if (index < valoracionSegura.toInt())
-                                    Color(0xFFFFC107)
-                                else Color.LightGray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = lugar.valoracion.toString(),
-                            style = MaterialTheme.typography.bodySmall
-                        )
                     }
                 }
-            }
-        }
-    }
-
-    // ─────────────────────────────────────
-    // 🪟 DIÁLOGO DE CONFIRMACIÓN
-    // ─────────────────────────────────────
-    lugarAConfirmar?.let { lugar ->
-
-        AlertDialog(
-            onDismissRequest = {
-                lugarAConfirmar = null
-            },
-            title = {
-                Text("Añadir al itinerario")
-            },
-            text = {
-                Text("¿Quieres añadir ${lugar.nombre} a tu itinerario?")
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        scope.launch {
-                            actividadDao.insert(
-                                ActividadEntity(
-                                    id = 0,
-                                    idItinerarioDia = null,
-                                    destinoId = destinoId,
-                                    tipoActividad = "Turismo",
-                                    orden = 999,
-                                    descripcion = lugar.descripcion ?: lugar.nombre,
-                                    horaInicio = null,
-                                    horaFin = null
-                                )
-                            )
+                        diaSeleccionado?.let {
+                            onAddToItinerary(transporte, it)
+                            mostrarDialogoDias = false
+                            expanded = false
                         }
-                        lugarAConfirmar = null
-                    }
+                    },
+                    enabled = diaSeleccionado != null
                 ) {
-                    Text("Añadir")
+                    Text("Confirmar")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { lugarAConfirmar = null }
-                ) {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
                     Text("Cancelar")
                 }
             }
         )
     }
+
+
 }
+
+

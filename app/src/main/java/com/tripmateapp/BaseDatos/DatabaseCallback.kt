@@ -29,7 +29,7 @@ class DatabaseCallback(
             insertarTransportes(database)
             insertarActividades(database)
         }
-    }*/
+    }
 
 
     override fun onOpen(db: SupportSQLiteDatabase) {
@@ -45,10 +45,10 @@ class DatabaseCallback(
 
                 val destinos = database.destinoDao().getAll()
 
-                insertarLugaresTuristicos(database, destinos)
-                insertarRestaurantes(database, destinos)
-                insertarTransportes(database, destinos)
-                insertarActividades(database, destinos)
+                insertarLugares(database)
+                insertarRestaurantes(database)
+                insertarTransportes(database)
+                insertarActividades(database)
             }
         }
     }
