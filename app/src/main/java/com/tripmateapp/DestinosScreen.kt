@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -81,7 +82,8 @@ fun DestinosScreen(
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    lugarTuristicoDao: LugarTuristicoDao
+    lugarTuristicoDao: LugarTuristicoDao,
+    onIrAModificarUsuario: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -178,7 +180,7 @@ fun DestinosScreen(
             Column {
                 TripMateMaterialTopAppBar(
                     onDatosUsuarioClick = {
-                        // aquí luego puedes navegar a datos usuario
+                        onIrAModificarUsuario()
                     }
                 )
 
@@ -987,7 +989,7 @@ fun TripMateMaterialTopAppBar(
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        imageVector = Icons.Default.Menu,
                         contentDescription = "Menú"
                     )
                 }

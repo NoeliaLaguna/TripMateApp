@@ -9,6 +9,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.tripmateapp.BaseDatos.DatabaseProvider
+import com.tripmateapp.ModificarDatosUsuario.ModificarDatosUsuarioScreen
 import com.tripmateapp.RegistroUsuario.RegistroScreen
 import com.tripmateapp.inicioSesion.InicioSesionScreen
 
@@ -20,6 +21,9 @@ object Rutas {
     const val REGISTRO = "registro"
     const val DESTINOS = "destinos"
     const val CREAR_VIAJE = "crearViaje/{destinoId}"
+
+    const val MODIFICAR_USUARIO = "modificarUsuario"
+
 
     fun crearViaje(destinoId: Int) = "crearViaje/$destinoId"
 }
@@ -85,7 +89,10 @@ fun Navegacion() {
                 actividadDao = actividadDao,
                 restauranteDao = restauranteDao,
                 transporteDao = transporteDao,
-                lugarTuristicoDao = lugarTuristicoDao
+                lugarTuristicoDao = lugarTuristicoDao,
+                onIrAModificarUsuario = {
+                    navController.navigate(Rutas.MODIFICAR_USUARIO)
+                }
             )
         }
 
@@ -101,6 +108,15 @@ fun Navegacion() {
 
             CrearViajeScreen(destinoId)
         }
+
+        composable(Rutas.MODIFICAR_USUARIO) {
+            ModificarDatosUsuarioScreen(
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
     }
 }
 
