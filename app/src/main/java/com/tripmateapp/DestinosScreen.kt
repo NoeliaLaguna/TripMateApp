@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -174,43 +175,47 @@ fun DestinosScreen(
 
     Scaffold(
         topBar = {
-            TripMateTopBar(
-                query = query,
-                onQueryChange = { query = it },
-                onSearchClick = {
-                    val queryNorm = query.normalize()
-
-                    // 1️⃣ Buscar por ciudad
-                    val ciudades = destinos.filter { d ->
-                        d.nombre.normalize().contains(queryNorm)
+            Column {
+                TripMateMaterialTopAppBar(
+                    onDatosUsuarioClick = {
+                        // aquí luego puedes navegar a datos usuario
                     }
+                )
 
-                    destinoSeleccionado = when {
-                        ciudades.size == 1 -> ciudades.first()
-                        ciudades.size > 1 -> {
-                            opcionesFiltrado = ciudades
-                            null
+                TripMateTopBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearchClick = {
+                        val queryNorm = query.normalize()
+
+                        val ciudades = destinos.filter { d ->
+                            d.nombre.normalize().contains(queryNorm)
                         }
 
-                        else -> {
-                            // 2️⃣ Buscar por país
-                            val paises = destinos.filter { d ->
-                                d.pais.normalize().contains(queryNorm)
+                        destinoSeleccionado = when {
+                            ciudades.size == 1 -> ciudades.first()
+                            ciudades.size > 1 -> {
+                                opcionesFiltrado = ciudades
+                                null
                             }
-
-                            when {
-                                paises.size == 1 -> paises.first()
-                                paises.size > 1 -> {
-                                    opcionesFiltrado = paises
-                                    null
+                            else -> {
+                                val paises = destinos.filter { d ->
+                                    d.pais.normalize().contains(queryNorm)
                                 }
 
-                                else -> null
+                                when {
+                                    paises.size == 1 -> paises.first()
+                                    paises.size > 1 -> {
+                                        opcionesFiltrado = paises
+                                        null
+                                    }
+                                    else -> null
+                                }
                             }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
 
@@ -459,20 +464,6 @@ fun TripMateTopBar(
             .background(Color.White)
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 40.dp, top = 15.dp)
-
-                .fillMaxWidth()
-        ) {
-            Image(
-                painter = painterResource(R.drawable.logo_tripmate),
-                contentDescription = "Logo TripMate",
-                modifier = Modifier.height(60.dp)
-            )
-        }
 
         Spacer(Modifier.height(20.dp))
 
@@ -960,7 +951,68 @@ fun TransporteCardExpandable(
         )
     }
 
-
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripMateMaterialTopAppBar(
+    onDatosUsuarioClick: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 🖼️ LOGO A LA IZQUIERDA
+                Image(
+                    painter = painterResource(id = R.drawable.logo_tripmate),
+                    contentDescription = "Logo TripMate",
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(end = 8.dp)
+                )
+
+                // 🟣 NOMBRE APP
+                Text(
+                    text = "TripMateApp",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        },
+        actions = {
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Menú"
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Modificar datos usuario") },
+                        onClick = {
+                            menuExpanded = false
+                            onDatosUsuarioClick()
+                        }
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color(0xFFF3EAF3),
+            titleContentColor = Color.Black,
+            actionIconContentColor = Color.Black
+        )
+    )
+}
+
 
 
