@@ -92,6 +92,9 @@ fun DestinosScreen(
 
     var mostrarSelectorCiudades by remember { mutableStateOf(false) }
 
+    var busquedaSinResultados by remember { mutableStateOf(false) }
+
+
     // 📅 FECHAS DEL VIAJE
     var fechaInicio by remember { mutableStateOf<Long?>(null) }
     var fechaFin by remember { mutableStateOf<Long?>(null) }
@@ -140,7 +143,19 @@ fun DestinosScreen(
 // DATE PICKERS
 // --------------------
     if (mostrarDatePickerInicio) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now()
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    return !fechaSeleccionada.isBefore(hoy)
+                }
+            }
+        )
+
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
@@ -156,7 +171,26 @@ fun DestinosScreen(
     }
 
     if (mostrarDatePickerFin) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now()
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    val inicio = fechaInicio?.let {
+                        Instant.ofEpochMilli(it)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                    }
+
+                    return !fechaSeleccionada.isBefore(hoy) &&
+                            (inicio == null || !fechaSeleccionada.isBefore(inicio))
+                }
+            }
+        )
+
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },
@@ -178,6 +212,12 @@ fun DestinosScreen(
                 query = query,
                 onQueryChange = { query = it },
                 onSearchClick = {
+
+                    destinoSeleccionado = null
+                    opcionesFiltrado = emptyList()
+                    mostrarSelectorCiudades = false
+                    busquedaSinResultados = false
+
                     val queryNorm = query.normalize()
 
                     // 1️⃣ Buscar por ciudad
@@ -187,34 +227,52 @@ fun DestinosScreen(
 
                     destinoSeleccionado = when {
                         ciudades.size == 1 -> ciudades.first()
+
                         ciudades.size > 1 -> {
                             opcionesFiltrado = ciudades
                             null
                         }
 
                         else -> {
-                            // 2️⃣ Buscar por país
                             val paises = destinos.filter { d ->
                                 d.pais.normalize().contains(queryNorm)
                             }
 
                             when {
                                 paises.size == 1 -> paises.first()
+
                                 paises.size > 1 -> {
                                     opcionesFiltrado = paises
                                     null
                                 }
 
-                                else -> null
+                                else -> {
+                                    // 🚨 SIN RESULTADOS
+                                    busquedaSinResultados = true
+                                    null
+                                }
                             }
                         }
                     }
+
+
                 }
             )
         }
     ) { innerPadding ->
 
         Column(modifier = Modifier.padding(innerPadding)) {
+
+            if (busquedaSinResultados) {
+                Text(
+                    "No se han encontrado destinos con ese criterio",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
 
             // ⭐ ⭐ ⭐
             // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
@@ -250,6 +308,7 @@ fun DestinosScreen(
 
                 return@Column
             }
+
 
             // ⭐ ⭐ ⭐
             // 2️⃣ MOSTRAR INFO DEL DESTINO SELECCIONADO
@@ -540,15 +599,24 @@ fun ActividadesList(
     val actividades by actividadDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    LazyColumn {
-        items(actividades) { actividad ->
-            ActividadCardExpandable(
-                actividad = actividad,
-                diasViaje = diasViaje,
-                onAddToItinerary = onAddToItinerary
-            )
+    if (actividades.isEmpty()) {
+        Text(
+            "No hay actividades disponibles para este destino",
+            modifier = Modifier.padding(16.dp),
+            color = Color.Gray
+        )
+    } else {
+        LazyColumn {
+            items(actividades) { actividad ->
+                ActividadCardExpandable(
+                    actividad = actividad,
+                    diasViaje = diasViaje,
+                    onAddToItinerary = onAddToItinerary
+                )
+            }
         }
     }
+
 }
 
 
@@ -687,15 +755,24 @@ fun RestaurantesList(
     val restaurantes by restauranteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    LazyColumn {
-        items(restaurantes) { rest ->
-            RestauranteCardExpandable(
-                restaurante = rest,
-                diasViaje = diasViaje,
-                onAddToItinerary = onAddToItinerary
-            )
+    if (restaurantes.isEmpty()) {
+        Text(
+            "No hay restaurantes disponibles para este destino",
+            modifier = Modifier.padding(16.dp),
+            color = Color.Gray
+        )
+    } else {
+        LazyColumn {
+            items(restaurantes) { rest ->
+                RestauranteCardExpandable(
+                    restaurante = rest,
+                    diasViaje = diasViaje,
+                    onAddToItinerary = onAddToItinerary
+                )
+            }
         }
     }
+
 }
 
 
@@ -831,15 +908,24 @@ fun TransportesList(
     val transportes by transporteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    LazyColumn {
-        items(transportes) { tr ->
-            TransporteCardExpandable(
-                transporte = tr,
-                diasViaje = diasViaje,
-                onAddToItinerary = onAddToItinerary
-            )
+    if (transportes.isEmpty()) {
+        Text(
+            "No hay opciones de transporte para este destino",
+            modifier = Modifier.padding(16.dp),
+            color = Color.Gray
+        )
+    } else {
+        LazyColumn {
+            items(transportes) { tr ->
+                TransporteCardExpandable(
+                    transporte = tr,
+                    diasViaje = diasViaje,
+                    onAddToItinerary = onAddToItinerary
+                )
+            }
         }
     }
+
 }
 
 
