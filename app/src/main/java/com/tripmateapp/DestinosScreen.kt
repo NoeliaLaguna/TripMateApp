@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -989,7 +990,7 @@ fun TripMateMaterialTopAppBar(
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
-                        imageVector = Icons.Default.Menu,
+                        imageVector = Icons.Default.Person,
                         contentDescription = "Menú"
                     )
                 }
