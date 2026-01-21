@@ -14,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,7 +83,8 @@ fun DestinosScreen(
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    lugarTuristicoDao: LugarTuristicoDao
+    lugarTuristicoDao: LugarTuristicoDao,
+    onIrAModificarUsuario: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -91,9 +95,6 @@ fun DestinosScreen(
     var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
 
     var mostrarSelectorCiudades by remember { mutableStateOf(false) }
-
-    var busquedaSinResultados by remember { mutableStateOf(false) }
-
 
     // 📅 FECHAS DEL VIAJE
     var fechaInicio by remember { mutableStateOf<Long?>(null) }
@@ -143,19 +144,7 @@ fun DestinosScreen(
 // DATE PICKERS
 // --------------------
     if (mostrarDatePickerInicio) {
-        val datePickerState = rememberDatePickerState(
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    val hoy = LocalDate.now()
-                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate()
-
-                    return !fechaSeleccionada.isBefore(hoy)
-                }
-            }
-        )
-
+        val datePickerState = rememberDatePickerState()
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
@@ -171,26 +160,7 @@ fun DestinosScreen(
     }
 
     if (mostrarDatePickerFin) {
-        val datePickerState = rememberDatePickerState(
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    val hoy = LocalDate.now()
-                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate()
-
-                    val inicio = fechaInicio?.let {
-                        Instant.ofEpochMilli(it)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
-                    }
-
-                    return !fechaSeleccionada.isBefore(hoy) &&
-                            (inicio == null || !fechaSeleccionada.isBefore(inicio))
-                }
-            }
-        )
-
+        val datePickerState = rememberDatePickerState()
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },
@@ -208,71 +178,51 @@ fun DestinosScreen(
 
     Scaffold(
         topBar = {
-            TripMateTopBar(
-                query = query,
-                onQueryChange = { query = it },
-                onSearchClick = {
-
-                    destinoSeleccionado = null
-                    opcionesFiltrado = emptyList()
-                    mostrarSelectorCiudades = false
-                    busquedaSinResultados = false
-
-                    val queryNorm = query.normalize()
-
-                    // 1️⃣ Buscar por ciudad
-                    val ciudades = destinos.filter { d ->
-                        d.nombre.normalize().contains(queryNorm)
+            Column {
+                TripMateMaterialTopAppBar(
+                    onDatosUsuarioClick = {
+                        onIrAModificarUsuario()
                     }
+                )
 
-                    destinoSeleccionado = when {
-                        ciudades.size == 1 -> ciudades.first()
+                TripMateTopBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearchClick = {
+                        val queryNorm = query.normalize()
 
-                        ciudades.size > 1 -> {
-                            opcionesFiltrado = ciudades
-                            null
+                        val ciudades = destinos.filter { d ->
+                            d.nombre.normalize().contains(queryNorm)
                         }
 
-                        else -> {
-                            val paises = destinos.filter { d ->
-                                d.pais.normalize().contains(queryNorm)
+                        destinoSeleccionado = when {
+                            ciudades.size == 1 -> ciudades.first()
+                            ciudades.size > 1 -> {
+                                opcionesFiltrado = ciudades
+                                null
                             }
-
-                            when {
-                                paises.size == 1 -> paises.first()
-
-                                paises.size > 1 -> {
-                                    opcionesFiltrado = paises
-                                    null
+                            else -> {
+                                val paises = destinos.filter { d ->
+                                    d.pais.normalize().contains(queryNorm)
                                 }
 
-                                else -> {
-                                    // 🚨 SIN RESULTADOS
-                                    busquedaSinResultados = true
-                                    null
+                                when {
+                                    paises.size == 1 -> paises.first()
+                                    paises.size > 1 -> {
+                                        opcionesFiltrado = paises
+                                        null
+                                    }
+                                    else -> null
                                 }
                             }
                         }
                     }
-
-
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
 
         Column(modifier = Modifier.padding(innerPadding)) {
-
-            if (busquedaSinResultados) {
-                Text(
-                    "No se han encontrado destinos con ese criterio",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
 
             // ⭐ ⭐ ⭐
             // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
@@ -308,7 +258,6 @@ fun DestinosScreen(
 
                 return@Column
             }
-
 
             // ⭐ ⭐ ⭐
             // 2️⃣ MOSTRAR INFO DEL DESTINO SELECCIONADO
@@ -519,20 +468,6 @@ fun TripMateTopBar(
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 40.dp, top = 15.dp)
-
-                .fillMaxWidth()
-        ) {
-            Image(
-                painter = painterResource(R.drawable.logo_tripmate),
-                contentDescription = "Logo TripMate",
-                modifier = Modifier.height(60.dp)
-            )
-        }
-
         Spacer(Modifier.height(20.dp))
 
         Row(
@@ -599,24 +534,15 @@ fun ActividadesList(
     val actividades by actividadDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    if (actividades.isEmpty()) {
-        Text(
-            "No hay actividades disponibles para este destino",
-            modifier = Modifier.padding(16.dp),
-            color = Color.Gray
-        )
-    } else {
-        LazyColumn {
-            items(actividades) { actividad ->
-                ActividadCardExpandable(
-                    actividad = actividad,
-                    diasViaje = diasViaje,
-                    onAddToItinerary = onAddToItinerary
-                )
-            }
+    LazyColumn {
+        items(actividades) { actividad ->
+            ActividadCardExpandable(
+                actividad = actividad,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
         }
     }
-
 }
 
 
@@ -755,24 +681,15 @@ fun RestaurantesList(
     val restaurantes by restauranteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    if (restaurantes.isEmpty()) {
-        Text(
-            "No hay restaurantes disponibles para este destino",
-            modifier = Modifier.padding(16.dp),
-            color = Color.Gray
-        )
-    } else {
-        LazyColumn {
-            items(restaurantes) { rest ->
-                RestauranteCardExpandable(
-                    restaurante = rest,
-                    diasViaje = diasViaje,
-                    onAddToItinerary = onAddToItinerary
-                )
-            }
+    LazyColumn {
+        items(restaurantes) { rest ->
+            RestauranteCardExpandable(
+                restaurante = rest,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
         }
     }
-
 }
 
 
@@ -908,24 +825,15 @@ fun TransportesList(
     val transportes by transporteDao.getByDestino(destinoId)
         .collectAsState(initial = emptyList())
 
-    if (transportes.isEmpty()) {
-        Text(
-            "No hay opciones de transporte para este destino",
-            modifier = Modifier.padding(16.dp),
-            color = Color.Gray
-        )
-    } else {
-        LazyColumn {
-            items(transportes) { tr ->
-                TransporteCardExpandable(
-                    transporte = tr,
-                    diasViaje = diasViaje,
-                    onAddToItinerary = onAddToItinerary
-                )
-            }
+    LazyColumn {
+        items(transportes) { tr ->
+            TransporteCardExpandable(
+                transporte = tr,
+                diasViaje = diasViaje,
+                onAddToItinerary = onAddToItinerary
+            )
         }
     }
-
 }
 
 
@@ -1046,7 +954,68 @@ fun TransporteCardExpandable(
         )
     }
 
-
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripMateMaterialTopAppBar(
+    onDatosUsuarioClick: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 🖼️ LOGO A LA IZQUIERDA
+                Image(
+                    painter = painterResource(id = R.drawable.logo_tripmate),
+                    contentDescription = "Logo TripMate",
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(end = 8.dp)
+                )
+
+                // 🟣 NOMBRE APP
+                Text(
+                    text = "TripMateApp",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        },
+        actions = {
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Menú"
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Modificar datos usuario") },
+                        onClick = {
+                            menuExpanded = false
+                            onDatosUsuarioClick()
+                        }
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color(0xFFF3EAF3),
+            titleContentColor = Color.Black,
+            actionIconContentColor = Color.Black
+        )
+    )
+}
+
 
 
