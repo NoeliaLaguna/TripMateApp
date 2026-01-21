@@ -86,7 +86,8 @@ fun DestinosScreen(
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
     lugarTuristicoDao: LugarTuristicoDao,
-    onIrAModificarUsuario: () -> Unit
+    onIrAModificarUsuario: () -> Unit,
+    onCerrarSesionClick: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -98,7 +99,7 @@ fun DestinosScreen(
 
     var mostrarSelectorCiudades by remember { mutableStateOf(false) }
 
-    // 📅 FECHAS DEL VIAJE
+    // FECHAS DEL VIAJE
     var fechaInicio by remember { mutableStateOf<Long?>(null) }
     var fechaFin by remember { mutableStateOf<Long?>(null) }
 
@@ -215,6 +216,9 @@ fun DestinosScreen(
                 TripMateMaterialTopAppBar(
                     onDatosUsuarioClick = {
                         onIrAModificarUsuario()
+                        },
+                    onCerrarSesionClick = {
+                        onCerrarSesionClick()
                     }
                 )
 
@@ -1168,11 +1172,11 @@ fun LugarTuristicoCardExpandable(
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripMateMaterialTopAppBar(
-    onDatosUsuarioClick: () -> Unit
+    onDatosUsuarioClick: () -> Unit, // Acción para modificar los datos del usuario
+    onCerrarSesionClick: () -> Unit // Acción para cerrar sesión
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -1201,6 +1205,7 @@ fun TripMateMaterialTopAppBar(
         },
         actions = {
             Box {
+                // Icono de perfil (muñequito) que abre el menú
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Default.Person,
@@ -1208,24 +1213,34 @@ fun TripMateMaterialTopAppBar(
                     )
                 }
 
+                // Menú desplegable cuando haces clic en el icono de perfil
                 DropdownMenu(
                     expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false }
+                    onDismissRequest = { menuExpanded = false } // Cerrar el menú cuando toque fuera
                 ) {
+                    // Opción para modificar los datos de usuario
                     DropdownMenuItem(
                         text = { Text("Modificar datos usuario") },
                         onClick = {
                             menuExpanded = false
-                            onDatosUsuarioClick()
+                            onDatosUsuarioClick() // Llamamos al callback para modificar datos
+                        }
+                    )
+                    // Opción para cerrar sesión
+                    DropdownMenuItem(
+                        text = { Text("Cerrar sesión") },
+                        onClick = {
+                            menuExpanded = false
+                            onCerrarSesionClick() // Llamamos al callback para cerrar sesión
                         }
                     )
                 }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color(0xFFF3EAF3),
-            titleContentColor = Color.Black,
-            actionIconContentColor = Color.Black
+            containerColor = Color(0xFFF3EAF3), // Color de fondo
+            titleContentColor = Color.Black, // Color del texto del título
+            actionIconContentColor = Color.Black // Color de los iconos
         )
     )
 }
