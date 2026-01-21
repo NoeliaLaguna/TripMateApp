@@ -23,11 +23,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
+import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
@@ -119,28 +122,48 @@ fun DestinosScreen(
                 actividadDao,
                 diasViaje
             )
+
             1 -> RestaurantesList(
                 destinoSeleccionado!!.id,
                 restauranteDao,
                 diasViaje
             )
+
             2 -> TransportesList(
                 destinoSeleccionado!!.id,
                 transporteDao,
+                diasViaje
+            )
+
+            3 -> LugaresTuristicosList(
+                destinoSeleccionado!!.id,
+                lugarTuristicoDao,
                 diasViaje
             )
         }
     }
 
 
-
-
-
 // --------------------
 // DATE PICKERS
 // --------------------
+    // --------------------
+// DATE PICKERS
+// --------------------
     if (mostrarDatePickerInicio) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            // Establecer la fecha mínima a la fecha de hoy
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now() // Fecha actual
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    return !fechaSeleccionada.isBefore(hoy) // No se puede seleccionar fecha anterior a hoy
+                }
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
@@ -156,7 +179,26 @@ fun DestinosScreen(
     }
 
     if (mostrarDatePickerFin) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            // Establecer la fecha mínima a la fecha de hoy
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now() // Fecha actual
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    val inicio = fechaInicio?.let {
+                        Instant.ofEpochMilli(it)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                    }
+
+                    return !fechaSeleccionada.isBefore(hoy) && // No se puede seleccionar fecha anterior a hoy
+                            (inicio == null || !fechaSeleccionada.isBefore(inicio)) // No se puede seleccionar fecha antes del inicio
+                }
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },
@@ -170,6 +212,7 @@ fun DestinosScreen(
             DatePicker(state = datePickerState)
         }
     }
+
 
 
     Scaffold(
@@ -417,32 +460,221 @@ fun DestinosScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Actividades") }
+                    text = {
+                        Text(
+                            "Actividades",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Restaurantes") }
+                    text = {
+                        Text(
+                            "Restaurantes",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 11.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Transporte") }
+                    text = {
+                        Text(
+                            "Transporte",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 3, // Nueva pestaña
+                    onClick = { selectedTab = 3 },
+                    text = {
+                        Text(
+                            "Lugares Turísticos", // Nombre de la nueva pestaña
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
             }
+
+
 
             Spacer(Modifier.height(16.dp))
 
             when (selectedTab) {
                 0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao, diasViaje = diasViaje)
-                1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao, diasViaje = diasViaje)
+                1 -> RestaurantesList(
+                    destinoSeleccionado!!.id,
+                    restauranteDao,
+                    diasViaje = diasViaje
+                )
+
                 2 -> TransportesList(destinoSeleccionado!!.id, transporteDao, diasViaje = diasViaje)
+                3 -> LugaresTuristicosList(
+                    destinoSeleccionado!!.id,
+                    lugarTuristicoDao,
+                    diasViaje = diasViaje
+                )
             }
         }
     }
 
 
 }
+
+@Composable
+fun LugaresTuristicosList(
+    destinoId: Int,
+    lugarTuristicoDao: LugarTuristicoDao,
+    diasViaje: List<LocalDate>
+) {
+    val lugaresTuristicos by lugarTuristicoDao.getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(lugaresTuristicos) { lugar ->
+            LugarTuristicoCardExpandable(
+                lugar = lugar,
+                diasViaje = diasViaje
+            )
+        }
+    }
+}
+
+@Composable
+fun LugarTuristicoCardExpandable(
+    lugar: LugarTuristicoEntity,
+    diasViaje: List<LocalDate>
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    lugar.nombre,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+
+            // EXPANDED CONTENT
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Descripción: ${lugar.descripcion ?: "Sin descripción"}")
+                Spacer(Modifier.height(8.dp))
+
+                // Botón para añadir al itinerario
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        mostrarDialogoDias = true
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+
+    // Cuadro de diálogo para seleccionar el día
+    if (mostrarDialogoDias) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDias = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        diaSeleccionado?.let {
+                            // Aquí agregas el lugar turístico al itinerario
+                            // Puedes llamar a una función para agregarlo, por ejemplo:
+                            // onAddToItinerary(lugar, it)
+                            mostrarDialogoDias = false
+                            expanded = false
+                        }
+                    },
+                    enabled = diaSeleccionado != null
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
+                    Text("Cancelar")
+                }
+            },
+            title = { Text("¿Qué día quieres añadirlo?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
+
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { diaSeleccionado = dia }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { diaSeleccionado = dia }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
 
 // ------------------------------------------------------------------
 //                  TOP BAR ESTILO AIRBNB
@@ -552,7 +784,6 @@ fun ActividadesList(
 }
 
 
-
 @Composable
 fun ActividadCardExpandable(
     actividad: ActividadEntity,
@@ -563,7 +794,6 @@ fun ActividadCardExpandable(
     var expanded by remember { mutableStateOf(false) }
     var mostrarDialogoDias by remember { mutableStateOf(false) }
     var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
-
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -621,6 +851,7 @@ fun ActividadCardExpandable(
         }
     }
 
+    // Cuadro de diálogo para seleccionar el día
     if (mostrarDialogoDias) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoDias = false },
@@ -650,6 +881,7 @@ fun ActividadCardExpandable(
                     return@AlertDialog
                 }
 
+                // Mostrar los RadioButtons solo cuando se haya presionado el botón
                 Column {
                     diasViaje.forEach { dia ->
                         Row(
@@ -673,7 +905,6 @@ fun ActividadCardExpandable(
             }
         )
     }
-
 }
 
 
@@ -704,14 +935,13 @@ fun RestauranteCardExpandable(
     restaurante: RestauranteEntity,
     diasViaje: List<LocalDate>,
     onAddToItinerary: (RestauranteEntity, LocalDate) -> Unit
-)
- {
-     var expanded by remember { mutableStateOf(false) }
-     var mostrarDialogoDias by remember { mutableStateOf(false) }
-     var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
 
 
-     Card(
+    Card(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -765,60 +995,60 @@ fun RestauranteCardExpandable(
         }
     }
 
-     if (mostrarDialogoDias) {
-         AlertDialog(
-             onDismissRequest = { mostrarDialogoDias = false },
-             title = { Text("¿Qué día quieres añadirlo?") },
-             text = {
-                 if (diasViaje.isEmpty()) {
-                     Text("No hay días disponibles")
-                     return@AlertDialog
-                 }
+    if (mostrarDialogoDias) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDias = false },
+            title = { Text("¿Qué día quieres añadirlo?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
 
-                 Column {
-                     diasViaje.forEach { dia ->
-                         Row(
-                             modifier = Modifier
-                                 .fillMaxWidth()
-                                 .clickable { diaSeleccionado = dia }
-                                 .padding(8.dp),
-                             verticalAlignment = Alignment.CenterVertically
-                         ) {
-                             RadioButton(
-                                 selected = diaSeleccionado == dia,
-                                 onClick = { diaSeleccionado = dia }
-                             )
-                             Text(
-                                 dia.toString(),
-                                 modifier = Modifier.padding(start = 8.dp)
-                             )
-                         }
-                     }
-                 }
-             },
-             confirmButton = {
-                 TextButton(
-                     onClick = {
-                         diaSeleccionado?.let {
-                             onAddToItinerary(restaurante, it) // o transporte
-                             mostrarDialogoDias = false
-                             expanded = false
-                         }
-                     },
-                     enabled = diaSeleccionado != null
-                 ) {
-                     Text("Confirmar")
-                 }
-             },
-             dismissButton = {
-                 TextButton(onClick = { mostrarDialogoDias = false }) {
-                     Text("Cancelar")
-                 }
-             }
-         )
-     }
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { diaSeleccionado = dia }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { diaSeleccionado = dia }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        diaSeleccionado?.let {
+                            onAddToItinerary(restaurante, it) // o transporte
+                            mostrarDialogoDias = false
+                            expanded = false
+                        }
+                    },
+                    enabled = diaSeleccionado != null
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
- }
+}
 
 
 @Composable
@@ -848,8 +1078,7 @@ fun TransporteCardExpandable(
     transporte: TransporteEntity,
     diasViaje: List<LocalDate>,
     onAddToItinerary: (TransporteEntity, LocalDate) -> Unit
-)
-{
+) {
 
     var expanded by remember { mutableStateOf(false) }
     var mostrarDialogoDias by remember { mutableStateOf(false) }
