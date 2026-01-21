@@ -1172,6 +1172,9 @@ fun LugarTuristicoCardExpandable(
     }
 }
 
+
+
+//============REUTILIZABLE===========
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripMateMaterialTopAppBar(
