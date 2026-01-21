@@ -1,6 +1,7 @@
 package com.tripmateapp.BaseDatos.LugaresTuristicos
 
 import androidx.room.*
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface LugarTuristicoDao {
@@ -23,7 +24,8 @@ interface LugarTuristicoDao {
     suspend fun getById(id: Int): LugarTuristicoEntity?
 
     @Query("SELECT * FROM lugares_turisticos WHERE destinoId = :destinoId")
-    suspend fun getByDestino(destinoId: Int): List<LugarTuristicoEntity>
+    fun getByDestino(destinoId: Int): Flow<List<LugarTuristicoEntity>>
+
 
     @Query("SELECT * FROM lugares_turisticos WHERE categoria = :categoria")
     suspend fun getByCategoria(categoria: String): List<LugarTuristicoEntity>

@@ -1,5 +1,7 @@
 package com.tripmateapp
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +27,7 @@ object Rutas {
 // ------------------------------
 // GRAFICO DE NAVEGACIÓN
 // ------------------------------
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Navegacion() {
 
@@ -37,7 +40,7 @@ fun Navegacion() {
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.REGISTRO
+        startDestination = Rutas.DESTINOS
     ) {
 
         // ---------------- LOGIN ----------------
@@ -75,15 +78,14 @@ fun Navegacion() {
         val actividadDao = database.actividadDao()
         val restauranteDao = database.restauranteDao()
         val transporteDao = database.transporteDao()
+        val lugarTuristicoDao = database.lugarTuristicoDao()
         composable(Rutas.DESTINOS) {
             DestinosScreen(
                 destinoDao = destinoDao,
                 actividadDao = actividadDao,
                 restauranteDao = restauranteDao,
                 transporteDao = transporteDao,
-                onDestinoSeleccionado = { destinoId ->
-                    navController.navigate(Rutas.crearViaje(destinoId))
-                }
+                lugarTuristicoDao = lugarTuristicoDao
             )
         }
 
