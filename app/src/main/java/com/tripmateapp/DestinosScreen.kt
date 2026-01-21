@@ -14,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,9 +28,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tripmateapp.BaseDatos.Destinos.DestinoDao
 import com.tripmateapp.BaseDatos.Destinos.DestinoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
+import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
 import com.tripmateapp.BaseDatos.Transporte.TransporteDao
@@ -80,7 +85,8 @@ fun DestinosScreen(
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    lugarTuristicoDao: LugarTuristicoDao
+    lugarTuristicoDao: LugarTuristicoDao,
+    onIrAModificarUsuario: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -140,7 +146,19 @@ fun DestinosScreen(
 // DATE PICKERS
 // --------------------
     if (mostrarDatePickerInicio) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            // Establecer la fecha mínima a la fecha de hoy
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now() // Fecha actual
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    return !fechaSeleccionada.isBefore(hoy) // No se puede seleccionar fecha anterior a hoy
+                }
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
@@ -156,7 +174,26 @@ fun DestinosScreen(
     }
 
     if (mostrarDatePickerFin) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            // Establecer la fecha mínima a la fecha de hoy
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val hoy = LocalDate.now() // Fecha actual
+                    val fechaSeleccionada = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+
+                    val inicio = fechaInicio?.let {
+                        Instant.ofEpochMilli(it)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                    }
+
+                    return !fechaSeleccionada.isBefore(hoy) && // No se puede seleccionar fecha anterior a hoy
+                            (inicio == null || !fechaSeleccionada.isBefore(inicio)) // No se puede seleccionar fecha antes del inicio
+                }
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },
@@ -174,43 +211,47 @@ fun DestinosScreen(
 
     Scaffold(
         topBar = {
-            TripMateTopBar(
-                query = query,
-                onQueryChange = { query = it },
-                onSearchClick = {
-                    val queryNorm = query.normalize()
-
-                    // 1️⃣ Buscar por ciudad
-                    val ciudades = destinos.filter { d ->
-                        d.nombre.normalize().contains(queryNorm)
+            Column {
+                TripMateMaterialTopAppBar(
+                    onDatosUsuarioClick = {
+                        onIrAModificarUsuario()
                     }
+                )
 
-                    destinoSeleccionado = when {
-                        ciudades.size == 1 -> ciudades.first()
-                        ciudades.size > 1 -> {
-                            opcionesFiltrado = ciudades
-                            null
+                TripMateTopBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearchClick = {
+                        val queryNorm = query.normalize()
+
+                        val ciudades = destinos.filter { d ->
+                            d.nombre.normalize().contains(queryNorm)
                         }
 
-                        else -> {
-                            // 2️⃣ Buscar por país
-                            val paises = destinos.filter { d ->
-                                d.pais.normalize().contains(queryNorm)
+                        destinoSeleccionado = when {
+                            ciudades.size == 1 -> ciudades.first()
+                            ciudades.size > 1 -> {
+                                opcionesFiltrado = ciudades
+                                null
                             }
-
-                            when {
-                                paises.size == 1 -> paises.first()
-                                paises.size > 1 -> {
-                                    opcionesFiltrado = paises
-                                    null
+                            else -> {
+                                val paises = destinos.filter { d ->
+                                    d.pais.normalize().contains(queryNorm)
                                 }
 
-                                else -> null
+                                when {
+                                    paises.size == 1 -> paises.first()
+                                    paises.size > 1 -> {
+                                        opcionesFiltrado = paises
+                                        null
+                                    }
+                                    else -> null
+                                }
                             }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
 
@@ -417,19 +458,57 @@ fun DestinosScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Actividades") }
+                    text = {
+                        Text(
+                            "Actividades",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Restaurantes") }
+                    text = {
+                        Text(
+                            "Restaurantes",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 11.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Transporte") }
+                    text = {
+                        Text(
+                            "Transporte",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 3, // Nueva pestaña
+                    onClick = { selectedTab = 3 },
+                    text = {
+                        Text(
+                            "Lugares Turísticos", // Nombre de la nueva pestaña
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp // Ajusta el tamaño de la fuente
+                            ),
+                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                        )
+                    }
                 )
             }
+
 
             Spacer(Modifier.height(16.dp))
 
@@ -437,6 +516,7 @@ fun DestinosScreen(
                 0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao, diasViaje = diasViaje)
                 1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao, diasViaje = diasViaje)
                 2 -> TransportesList(destinoSeleccionado!!.id, transporteDao, diasViaje = diasViaje)
+                3 -> LugaresTuristicosList(destinoSeleccionado!!.id, lugarTuristicoDao, diasViaje = diasViaje)
             }
         }
     }
@@ -459,20 +539,6 @@ fun TripMateTopBar(
             .background(Color.White)
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 40.dp, top = 15.dp)
-
-                .fillMaxWidth()
-        ) {
-            Image(
-                painter = painterResource(R.drawable.logo_tripmate),
-                contentDescription = "Logo TripMate",
-                modifier = Modifier.height(60.dp)
-            )
-        }
 
         Spacer(Modifier.height(20.dp))
 
@@ -960,7 +1026,209 @@ fun TransporteCardExpandable(
         )
     }
 
-
 }
+
+@Composable
+fun LugaresTuristicosList(
+    destinoId: Int,
+    lugarTuristicoDao: LugarTuristicoDao,
+    diasViaje: List<LocalDate>
+) {
+    val lugaresTuristicos by lugarTuristicoDao.getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(lugaresTuristicos) { lugar ->
+            LugarTuristicoCardExpandable(
+                lugar = lugar,
+                diasViaje = diasViaje
+            )
+        }
+    }
+}
+
+@Composable
+fun LugarTuristicoCardExpandable(
+    lugar: LugarTuristicoEntity,
+    diasViaje: List<LocalDate>
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    lugar.nombre,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+
+            // EXPANDED CONTENT
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Descripción: ${lugar.descripcion ?: "Sin descripción"}")
+                Spacer(Modifier.height(8.dp))
+
+                // Botón para añadir al itinerario
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        mostrarDialogoDias = true
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+
+    // Cuadro de diálogo para seleccionar el día
+    if (mostrarDialogoDias) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDias = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        diaSeleccionado?.let {
+                            // Aquí agregas el lugar turístico al itinerario
+                            // Puedes llamar a una función para agregarlo, por ejemplo:
+                            // onAddToItinerary(lugar, it)
+                            mostrarDialogoDias = false
+                            expanded = false
+                        }
+                    },
+                    enabled = diaSeleccionado != null
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
+                    Text("Cancelar")
+                }
+            },
+            title = { Text("¿Qué día quieres añadirlo?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
+
+                // Mostrar los RadioButtons solo cuando se haya presionado el botón
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { diaSeleccionado = dia }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { diaSeleccionado = dia }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripMateMaterialTopAppBar(
+    onDatosUsuarioClick: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 🖼️ LOGO A LA IZQUIERDA
+                Image(
+                    painter = painterResource(id = R.drawable.logo_tripmate),
+                    contentDescription = "Logo TripMate",
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(end = 8.dp)
+                )
+
+                // 🟣 NOMBRE APP
+                Text(
+                    text = "TripMateApp",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        },
+        actions = {
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Menú"
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Modificar datos usuario") },
+                        onClick = {
+                            menuExpanded = false
+                            onDatosUsuarioClick()
+                        }
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color(0xFFF3EAF3),
+            titleContentColor = Color.Black,
+            actionIconContentColor = Color.Black
+        )
+    )
+}
+
 
 
