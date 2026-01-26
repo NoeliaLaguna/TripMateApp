@@ -93,6 +93,12 @@ fun Navegacion() {
                 onIrAModificarUsuario = {
                     navController.navigate(Rutas.MODIFICAR_USUARIO)
                 }
+                ,
+                onCerrarSesionClick = {
+                    navController.navigate(Rutas.LOGIN) {
+                        popUpTo(Rutas.DESTINOS) { inclusive = true }
+                    }
+                }
             )
         }
 
