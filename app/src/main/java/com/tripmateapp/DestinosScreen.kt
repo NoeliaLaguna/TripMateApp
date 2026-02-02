@@ -14,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,12 +96,8 @@ fun DestinosScreen(
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
     lugarTuristicoDao: LugarTuristicoDao,
-    itinerarioDao: ItinerarioDao,
-    itinerarioDiaDao: ItinerarioDiaDao,
-    itinerarioDiaActividadDao: ItinerarioDiaActividadDao,
-    itinerarioDiaRestauranteDao: ItinerarioDiaRestauranteDao,
-    itinerarioDiaTransporteDao: ItinerarioDiaTransporteDao,
-    itinerarioDiaLugarTuristicoDao: ItinerarioDiaLugarTuristicoDao
+    onIrAModificarUsuario: () -> Unit,
+    onCerrarSesionClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -112,7 +110,7 @@ fun DestinosScreen(
 
     var mostrarSelectorCiudades by remember { mutableStateOf(false) }
 
-    // 📅 FECHAS DEL VIAJE
+    // FECHAS DEL VIAJE
     var fechaInicio by remember { mutableStateOf<Long?>(null) }
     var fechaFin by remember { mutableStateOf<Long?>(null) }
 
@@ -132,10 +130,31 @@ fun DestinosScreen(
     }
 
 
+    if (fechaInicio != null && fechaFin != null) {
+        when (selectedTab) {
+            0 -> ActividadesList(
+                destinoSeleccionado!!.id,
+                actividadDao,
+                diasViaje
+            )
+            1 -> RestaurantesList(
+                destinoSeleccionado!!.id,
+                restauranteDao,
+                diasViaje
+            )
+            2 -> TransportesList(
+                destinoSeleccionado!!.id,
+                transporteDao,
+                diasViaje
+            )
+        }
+    }
+
+
+
+
+
 // --------------------
-// DATE PICKERS
-// --------------------
-    // --------------------
 // DATE PICKERS
 // --------------------
     if (mostrarDatePickerInicio) {
@@ -202,46 +221,52 @@ fun DestinosScreen(
     }
 
 
-
     Scaffold(
         topBar = {
-            TripMateTopBar(
-                query = query,
-                onQueryChange = { query = it },
-                onSearchClick = {
-                    val queryNorm = query.normalize()
-
-                    // 1️⃣ Buscar por ciudad
-                    val ciudades = destinos.filter { d ->
-                        d.nombre.normalize().contains(queryNorm)
+            Column {
+                TripMateMaterialTopAppBar(
+                    onDatosUsuarioClick = {
+                        onIrAModificarUsuario()
+                        },
+                    onCerrarSesionClick = {
+                        onCerrarSesionClick()
                     }
+                )
 
-                    destinoSeleccionado = when {
-                        ciudades.size == 1 -> ciudades.first()
-                        ciudades.size > 1 -> {
-                            opcionesFiltrado = ciudades
-                            null
+                TripMateTopBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearchClick = {
+                        val queryNorm = query.normalize()
+
+                        val ciudades = destinos.filter { d ->
+                            d.nombre.normalize().contains(queryNorm)
                         }
 
-                        else -> {
-                            // 2️⃣ Buscar por país
-                            val paises = destinos.filter { d ->
-                                d.pais.normalize().contains(queryNorm)
+                        destinoSeleccionado = when {
+                            ciudades.size == 1 -> ciudades.first()
+                            ciudades.size > 1 -> {
+                                opcionesFiltrado = ciudades
+                                null
                             }
-
-                            when {
-                                paises.size == 1 -> paises.first()
-                                paises.size > 1 -> {
-                                    opcionesFiltrado = paises
-                                    null
+                            else -> {
+                                val paises = destinos.filter { d ->
+                                    d.pais.normalize().contains(queryNorm)
                                 }
 
-                                else -> null
+                                when {
+                                    paises.size == 1 -> paises.first()
+                                    paises.size > 1 -> {
+                                        opcionesFiltrado = paises
+                                        null
+                                    }
+                                    else -> null
+                                }
                             }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
 
@@ -614,163 +639,23 @@ fun DestinosScreen(
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-
-
-}
-
-@Composable
-fun LugaresTuristicosList(
-    destinoId: Int,
-    lugarTuristicoDao: LugarTuristicoDao,
-    diasViaje: List<LocalDate>
-) {
-    val lugaresTuristicos by lugarTuristicoDao.getByDestino(destinoId)
-        .collectAsState(initial = emptyList())
-
-    LazyColumn {
-        items(lugaresTuristicos) { lugar ->
-            LugarTuristicoCardExpandable(
-                lugar = lugar,
-                diasViaje = diasViaje
-            )
-        }
-    }
-}
-
-@Composable
-fun LugarTuristicoCardExpandable(
-    lugar: LugarTuristicoEntity,
-    diasViaje: List<LocalDate>,
-    onAddToItinerary: (LugarTuristicoEntity, LocalDate) -> Unit = { _, _ -> }
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var mostrarDialogoDias by remember { mutableStateOf(false) }
-    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
-
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-
-            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(
-                        value = expanded,
-                        onValueChange = { expanded = it }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    lugar.nombre,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null
                 )
             }
 
-            // EXPANDED CONTENT
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
 
-                Text("Descripción: ${lugar.descripcion ?: "Sin descripción"}")
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-                // Botón para añadir al itinerario
-                Spacer(Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        mostrarDialogoDias = true
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Añadir a itinerario")
-                }
+            when (selectedTab) {
+                0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao, diasViaje = diasViaje)
+                1 -> RestaurantesList(destinoSeleccionado!!.id, restauranteDao, diasViaje = diasViaje)
+                2 -> TransportesList(destinoSeleccionado!!.id, transporteDao, diasViaje = diasViaje)
+                3 -> LugaresTuristicosList(destinoSeleccionado!!.id, lugarTuristicoDao, diasViaje = diasViaje)
             }
         }
     }
 
-    // Cuadro de diálogo para seleccionar el día
-    if (mostrarDialogoDias) {
-        AlertDialog(
-            onDismissRequest = { 
-                mostrarDialogoDias = false
-                diaSeleccionado = null
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        diaSeleccionado?.let {
-                            onAddToItinerary(lugar, it)
-                            mostrarDialogoDias = false
-                            expanded = false
-                            diaSeleccionado = null
-                        }
-                    },
-                    enabled = diaSeleccionado != null
-                ) {
-                    Text("Confirmar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    mostrarDialogoDias = false
-                    diaSeleccionado = null
-                }) {
-                    Text("Cancelar")
-                }
-            },
-            title = { Text("¿Qué día quieres añadirlo?") },
-            text = {
-                if (diasViaje.isEmpty()) {
-                    Text("No hay días disponibles")
-                    return@AlertDialog
-                }
 
-                Column {
-                    diasViaje.forEach { dia ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    diaSeleccionado = dia
-                                }
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = diaSeleccionado == dia,
-                                onClick = { 
-                                    diaSeleccionado = dia
-                                }
-                            )
-                            Text(
-                                dia.toString(),
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        )
-    }
 }
-
 
 // ------------------------------------------------------------------
 //                  TOP BAR ESTILO AIRBNB
@@ -787,20 +672,6 @@ fun TripMateTopBar(
             .background(Color.White)
             .padding(top = 30.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(start = 40.dp, top = 15.dp)
-
-                .fillMaxWidth()
-        ) {
-            Image(
-                painter = painterResource(R.drawable.logo_tripmate),
-                contentDescription = "Logo TripMate",
-                modifier = Modifier.height(60.dp)
-            )
-        }
 
         Spacer(Modifier.height(20.dp))
 
@@ -880,6 +751,7 @@ fun ActividadesList(
 }
 
 
+
 @Composable
 fun ActividadCardExpandable(
     actividad: ActividadEntity,
@@ -890,6 +762,7 @@ fun ActividadCardExpandable(
     var expanded by remember { mutableStateOf(false) }
     var mostrarDialogoDias by remember { mutableStateOf(false) }
     var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -947,7 +820,6 @@ fun ActividadCardExpandable(
         }
     }
 
-    // Cuadro de diálogo para seleccionar el día
     if (mostrarDialogoDias) {
         AlertDialog(
             onDismissRequest = { 
@@ -1010,6 +882,7 @@ fun ActividadCardExpandable(
             }
         )
     }
+
 }
 
 
@@ -1040,13 +913,14 @@ fun RestauranteCardExpandable(
     restaurante: RestauranteEntity,
     diasViaje: List<LocalDate>,
     onAddToItinerary: (RestauranteEntity, LocalDate) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var mostrarDialogoDias by remember { mutableStateOf(false) }
-    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+)
+ {
+     var expanded by remember { mutableStateOf(false) }
+     var mostrarDialogoDias by remember { mutableStateOf(false) }
+     var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
 
 
-    Card(
+     Card(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -1100,71 +974,60 @@ fun RestauranteCardExpandable(
         }
     }
 
-    if (mostrarDialogoDias) {
-        AlertDialog(
-            onDismissRequest = { 
-                mostrarDialogoDias = false
-                diaSeleccionado = null
-            },
-            title = { Text("¿Qué día quieres añadirlo?") },
-            text = {
-                if (diasViaje.isEmpty()) {
-                    Text("No hay días disponibles")
-                    return@AlertDialog
-                }
+     if (mostrarDialogoDias) {
+         AlertDialog(
+             onDismissRequest = { mostrarDialogoDias = false },
+             title = { Text("¿Qué día quieres añadirlo?") },
+             text = {
+                 if (diasViaje.isEmpty()) {
+                     Text("No hay días disponibles")
+                     return@AlertDialog
+                 }
 
-                Column {
-                    diasViaje.forEach { dia ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    diaSeleccionado = dia
-                                }
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = diaSeleccionado == dia,
-                                onClick = { 
-                                    diaSeleccionado = dia
-                                }
-                            )
-                            Text(
-                                dia.toString(),
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        diaSeleccionado?.let {
-                            onAddToItinerary(restaurante, it)
-                            mostrarDialogoDias = false
-                            expanded = false
-                            diaSeleccionado = null
-                        }
-                    },
-                    enabled = diaSeleccionado != null
-                ) {
-                    Text("Confirmar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    mostrarDialogoDias = false
-                    diaSeleccionado = null
-                }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
+                 Column {
+                     diasViaje.forEach { dia ->
+                         Row(
+                             modifier = Modifier
+                                 .fillMaxWidth()
+                                 .clickable { diaSeleccionado = dia }
+                                 .padding(8.dp),
+                             verticalAlignment = Alignment.CenterVertically
+                         ) {
+                             RadioButton(
+                                 selected = diaSeleccionado == dia,
+                                 onClick = { diaSeleccionado = dia }
+                             )
+                             Text(
+                                 dia.toString(),
+                                 modifier = Modifier.padding(start = 8.dp)
+                             )
+                         }
+                     }
+                 }
+             },
+             confirmButton = {
+                 TextButton(
+                     onClick = {
+                         diaSeleccionado?.let {
+                             onAddToItinerary(restaurante, it) // o transporte
+                             mostrarDialogoDias = false
+                             expanded = false
+                         }
+                     },
+                     enabled = diaSeleccionado != null
+                 ) {
+                     Text("Confirmar")
+                 }
+             },
+             dismissButton = {
+                 TextButton(onClick = { mostrarDialogoDias = false }) {
+                     Text("Cancelar")
+                 }
+             }
+         )
+     }
 
-}
+ }
 
 
 @Composable
@@ -1194,7 +1057,8 @@ fun TransporteCardExpandable(
     transporte: TransporteEntity,
     diasViaje: List<LocalDate>,
     onAddToItinerary: (TransporteEntity, LocalDate) -> Unit
-) {
+)
+{
 
     var expanded by remember { mutableStateOf(false) }
     var mostrarDialogoDias by remember { mutableStateOf(false) }
@@ -1316,7 +1180,227 @@ fun TransporteCardExpandable(
         )
     }
 
-
 }
+
+@Composable
+fun LugaresTuristicosList(
+    destinoId: Int,
+    lugarTuristicoDao: LugarTuristicoDao,
+    diasViaje: List<LocalDate>
+) {
+    val lugaresTuristicos by lugarTuristicoDao.getByDestino(destinoId)
+        .collectAsState(initial = emptyList())
+
+    LazyColumn {
+        items(lugaresTuristicos) { lugar ->
+            LugarTuristicoCardExpandable(
+                lugar = lugar,
+                diasViaje = diasViaje
+            )
+        }
+    }
+}
+
+@Composable
+fun LugarTuristicoCardExpandable(
+    lugar: LugarTuristicoEntity,
+    diasViaje: List<LocalDate>
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var mostrarDialogoDias by remember { mutableStateOf(false) }
+    var diaSeleccionado by remember { mutableStateOf<LocalDate?>(null) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            // ⭐ SOLO EL TÍTULO EXPANDE LA TARJETA
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = expanded,
+                        onValueChange = { expanded = it }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    lugar.nombre,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+
+            // EXPANDED CONTENT
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+
+                Text("Descripción: ${lugar.descripcion ?: "Sin descripción"}")
+                Spacer(Modifier.height(8.dp))
+
+                // Botón para añadir al itinerario
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        mostrarDialogoDias = true
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Añadir a itinerario")
+                }
+            }
+        }
+    }
+
+    // Cuadro de diálogo para seleccionar el día
+    if (mostrarDialogoDias) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDias = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        diaSeleccionado?.let {
+                            // Aquí agregas el lugar turístico al itinerario
+                            // Puedes llamar a una función para agregarlo, por ejemplo:
+                            // onAddToItinerary(lugar, it)
+                            mostrarDialogoDias = false
+                            expanded = false
+                        }
+                    },
+                    enabled = diaSeleccionado != null
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoDias = false }) {
+                    Text("Cancelar")
+                }
+            },
+            title = { Text("¿Qué día quieres añadirlo?") },
+            text = {
+                if (diasViaje.isEmpty()) {
+                    Text("No hay días disponibles")
+                    return@AlertDialog
+                }
+
+                // Mostrar los RadioButtons solo cuando se haya presionado el botón
+                Column {
+                    diasViaje.forEach { dia ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    diaSeleccionado = dia
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = diaSeleccionado == dia,
+                                onClick = { 
+                                    diaSeleccionado = dia
+                                }
+                            )
+                            Text(
+                                dia.toString(),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+
+
+//============REUTILIZABLE===========
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripMateMaterialTopAppBar(
+    onDatosUsuarioClick: () -> Unit, // Acción para modificar los datos del usuario
+    onCerrarSesionClick: () -> Unit // Acción para cerrar sesión
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 🖼️ LOGO A LA IZQUIERDA
+                Image(
+                    painter = painterResource(id = R.drawable.logo_tripmate),
+                    contentDescription = "Logo TripMate",
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(end = 8.dp)
+                )
+
+                // 🟣 NOMBRE APP
+                Text(
+                    text = "TripMateApp",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        },
+        actions = {
+            Box {
+                // Icono de perfil (muñequito) que abre el menú
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Menú"
+                    )
+                }
+
+                // Menú desplegable cuando haces clic en el icono de perfil
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false } // Cerrar el menú cuando toque fuera
+                ) {
+                    // Opción para modificar los datos de usuario
+                    DropdownMenuItem(
+                        text = { Text("Modificar datos usuario") },
+                        onClick = {
+                            menuExpanded = false
+                            onDatosUsuarioClick() // Llamamos al callback para modificar datos
+                        }
+                    )
+                    // Opción para cerrar sesión
+                    DropdownMenuItem(
+                        text = { Text("Cerrar sesión") },
+                        onClick = {
+                            menuExpanded = false
+                            onCerrarSesionClick() // Llamamos al callback para cerrar sesión
+                        }
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color(0xFFF3EAF3), // Color de fondo
+            titleContentColor = Color.Black, // Color del texto del título
+            actionIconContentColor = Color.Black // Color de los iconos
+        )
+    )
+}
+
 
 
