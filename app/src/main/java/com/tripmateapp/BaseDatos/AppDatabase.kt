@@ -11,6 +11,14 @@ import com.tripmateapp.BaseDatos.DestinosFavoritos.DestinoFavoritoEntity
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDao
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDias.ItinerarioDiaDao
 import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioEntity
+import com.tripmateapp.BaseDatos.ItinerarioDiaActividades.ItinerarioDiaActividadDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaActividades.ItinerarioDiaActividadEntity
+import com.tripmateapp.BaseDatos.ItinerarioDiaRestaurantes.ItinerarioDiaRestauranteDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaRestaurantes.ItinerarioDiaRestauranteEntity
+import com.tripmateapp.BaseDatos.ItinerarioDiaTransportes.ItinerarioDiaTransporteDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaTransportes.ItinerarioDiaTransporteEntity
+import com.tripmateapp.BaseDatos.ItinerarioDiaLugaresTuristicos.ItinerarioDiaLugarTuristicoDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaLugaresTuristicos.ItinerarioDiaLugarTuristicoEntity
 import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
 import com.tripmateapp.BaseDatos.Restaurantes.RestauranteEntity
@@ -50,10 +58,14 @@ import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoEntity
         LugarTuristicoEntity::class,
         ActividadEntity::class,
         ItinerarioDiaEntity::class,
+        ItinerarioDiaActividadEntity::class,
+        ItinerarioDiaRestauranteEntity::class,
+        ItinerarioDiaTransporteEntity::class,
+        ItinerarioDiaLugarTuristicoEntity::class,
         DestinoFavoritoEntity ::class
 
     ],
-    version = 7
+    version = 8
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -67,4 +79,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun actividadDao(): ActividadDao
     abstract fun itinerarioDiaDao(): ItinerarioDiaDao
     abstract fun destinoFavoritoDao(): DestinoFavoritoDao
+    abstract fun itinerarioDiaActividadDao(): ItinerarioDiaActividadDao
+    abstract fun itinerarioDiaRestauranteDao(): ItinerarioDiaRestauranteDao
+    abstract fun itinerarioDiaTransporteDao(): ItinerarioDiaTransporteDao
+    abstract fun itinerarioDiaLugarTuristicoDao(): ItinerarioDiaLugarTuristicoDao
 }

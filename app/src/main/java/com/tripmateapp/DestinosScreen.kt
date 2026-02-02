@@ -37,6 +37,16 @@ import com.tripmateapp.BaseDatos.Transporte.TransporteDao
 import com.tripmateapp.BaseDatos.Transporte.TransporteEntity
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
 import com.tripmateapp.BaseDatos.actividades.ActividadEntity
+import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDao
+import com.tripmateapp.BaseDatos.Itinerarios.ItinerarioDias.ItinerarioDiaDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaActividades.ItinerarioDiaActividadDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaRestaurantes.ItinerarioDiaRestauranteDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaTransportes.ItinerarioDiaTransporteDao
+import com.tripmateapp.BaseDatos.ItinerarioDiaLugaresTuristicos.ItinerarioDiaLugarTuristicoDao
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import java.text.Normalizer
 
 import java.time.Instant
@@ -83,8 +93,15 @@ fun DestinosScreen(
     actividadDao: ActividadDao,
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
-    lugarTuristicoDao: LugarTuristicoDao
+    lugarTuristicoDao: LugarTuristicoDao,
+    itinerarioDao: ItinerarioDao,
+    itinerarioDiaDao: ItinerarioDiaDao,
+    itinerarioDiaActividadDao: ItinerarioDiaActividadDao,
+    itinerarioDiaRestauranteDao: ItinerarioDiaRestauranteDao,
+    itinerarioDiaTransporteDao: ItinerarioDiaTransporteDao,
+    itinerarioDiaLugarTuristicoDao: ItinerarioDiaLugarTuristicoDao
 ) {
+    val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
 
     val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
@@ -111,35 +128,6 @@ fun DestinosScreen(
             generarDiasViaje(fechaInicio!!, fechaFin!!)
         } else {
             emptyList()
-        }
-    }
-
-
-    if (fechaInicio != null && fechaFin != null) {
-        when (selectedTab) {
-            0 -> ActividadesList(
-                destinoSeleccionado!!.id,
-                actividadDao,
-                diasViaje
-            )
-
-            1 -> RestaurantesList(
-                destinoSeleccionado!!.id,
-                restauranteDao,
-                diasViaje
-            )
-
-            2 -> TransportesList(
-                destinoSeleccionado!!.id,
-                transporteDao,
-                diasViaje
-            )
-
-            3 -> LugaresTuristicosList(
-                destinoSeleccionado!!.id,
-                lugarTuristicoDao,
-                diasViaje
-            )
         }
     }
 
@@ -257,41 +245,40 @@ fun DestinosScreen(
         }
     ) { innerPadding ->
 
-        Column(modifier = Modifier.padding(innerPadding)) {
+        LazyColumn(modifier = Modifier.padding(innerPadding)) {
 
             // ⭐ ⭐ ⭐
             // 1️⃣ SI HAY FILTRO DE CIUDADES → MOSTRAR OPCIONES
             // ⭐ ⭐ ⭐
             if (opcionesFiltrado.isNotEmpty()) {
+                item {
+                    Text(
+                        "Hemos encontrado varias ciudades. Selecciona una:",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
 
-                Text(
-                    "Hemos encontrado varias ciudades. Selecciona una:",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                LazyColumn {
-                    items(opcionesFiltrado) { destino ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clickable {
-                                    destinoSeleccionado = destino
-                                    opcionesFiltrado = emptyList()
-                                },
-                            elevation = CardDefaults.cardElevation(4.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
-                                Text(destino.pais, color = Color.Gray)
-                            }
+                items(opcionesFiltrado) { destino ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clickable {
+                                destinoSeleccionado = destino
+                                opcionesFiltrado = emptyList()
+                            },
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+                            Text(destino.pais, color = Color.Gray)
                         }
                     }
                 }
 
-                return@Column
+                return@LazyColumn
             }
 
             // ⭐ ⭐ ⭐
@@ -302,72 +289,74 @@ fun DestinosScreen(
                 // Buscar todas las ciudades del mismo país
                 val ciudadesMismoPais = destinos.filter { it.pais == destino.pais }
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(Modifier.padding(16.dp)) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
 
-                        // NOMBRE DEL DESTINO
-                        Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
+                            // NOMBRE DEL DESTINO
+                            Text(destino.nombre, style = MaterialTheme.typography.titleLarge)
 
-                        // PAÍS
-                        Text(destino.pais, color = Color.Gray)
+                            // PAÍS
+                            Text(destino.pais, color = Color.Gray)
 
-                        // DESCRIPCIÓN
-                        destino.descripcion?.let {
-                            Spacer(Modifier.height(6.dp))
-                            Text(it)
-                        }
-
-                        // ⭐ MOSTRAR BOTÓN SI HAY MÁS DE UNA CIUDAD
-                        if (ciudadesMismoPais.size > 1) {
-
-                            Spacer(Modifier.height(12.dp))
-
-                            TextButton(onClick = {
-                                mostrarSelectorCiudades = !mostrarSelectorCiudades
-                            }) {
-                                Text("Cambiar ciudad (${ciudadesMismoPais.size})")
-                                Icon(
-                                    imageVector = if (mostrarSelectorCiudades)
-                                        Icons.Default.KeyboardArrowUp
-                                    else
-                                        Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null
-                                )
+                            // DESCRIPCIÓN
+                            destino.descripcion?.let {
+                                Spacer(Modifier.height(6.dp))
+                                Text(it)
                             }
 
-                            // ⭐ DESPLEGABLE DE CIUDADES
-                            if (mostrarSelectorCiudades) {
+                            // ⭐ MOSTRAR BOTÓN SI HAY MÁS DE UNA CIUDAD
+                            if (ciudadesMismoPais.size > 1) {
 
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                ) {
+                                Spacer(Modifier.height(12.dp))
 
-                                    ciudadesMismoPais.forEach { ciudad ->
+                                TextButton(onClick = {
+                                    mostrarSelectorCiudades = !mostrarSelectorCiudades
+                                }) {
+                                    Text("Cambiar ciudad (${ciudadesMismoPais.size})")
+                                    Icon(
+                                        imageVector = if (mostrarSelectorCiudades)
+                                            Icons.Default.KeyboardArrowUp
+                                        else
+                                            Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null
+                                    )
+                                }
 
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(6.dp)
-                                                .clickable {
-                                                    destinoSeleccionado = ciudad
-                                                    mostrarSelectorCiudades = false
-                                                },
-                                            shape = RoundedCornerShape(10.dp),
-                                            elevation = CardDefaults.cardElevation(2.dp)
-                                        ) {
-                                            Column(Modifier.padding(12.dp)) {
-                                                Text(
-                                                    ciudad.nombre,
-                                                    style = MaterialTheme.typography.titleMedium
-                                                )
+                                // ⭐ DESPLEGABLE DE CIUDADES
+                                if (mostrarSelectorCiudades) {
+
+                                    Column(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp)
+                                    ) {
+
+                                        ciudadesMismoPais.forEach { ciudad ->
+
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(6.dp)
+                                                    .clickable {
+                                                        destinoSeleccionado = ciudad
+                                                        mostrarSelectorCiudades = false
+                                                    },
+                                                shape = RoundedCornerShape(10.dp),
+                                                elevation = CardDefaults.cardElevation(2.dp)
+                                            ) {
+                                                Column(Modifier.padding(12.dp)) {
+                                                    Text(
+                                                        ciudad.nombre,
+                                                        style = MaterialTheme.typography.titleMedium
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -383,52 +372,54 @@ fun DestinosScreen(
 // ⭐ ⭐ ⭐
             destinoSeleccionado?.let {
 
-                Spacer(Modifier.height(16.dp))
+                item {
+                    Spacer(Modifier.height(16.dp))
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(Modifier.padding(16.dp)) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
 
-                        Text("Fechas del viaje", style = MaterialTheme.typography.titleMedium)
+                            Text("Fechas del viaje", style = MaterialTheme.typography.titleMedium)
 
-                        Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(12.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-
-                            OutlinedButton(
-                                onClick = { mostrarDatePickerInicio = true },
-                                modifier = Modifier.weight(1f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text(
-                                    fechaInicio?.let {
-                                        "Inicio: ${
-                                            java.text.SimpleDateFormat("dd/MM/yyyy")
-                                                .format(it)
-                                        }"
-                                    } ?: "Fecha inicio"
-                                )
-                            }
 
-                            OutlinedButton(
-                                onClick = { mostrarDatePickerFin = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    fechaFin?.let {
-                                        "Fin: ${
-                                            java.text.SimpleDateFormat("dd/MM/yyyy")
-                                                .format(it)
-                                        }"
-                                    } ?: "Fecha fin"
-                                )
+                                OutlinedButton(
+                                    onClick = { mostrarDatePickerInicio = true },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        fechaInicio?.let {
+                                            "Inicio: ${
+                                                java.text.SimpleDateFormat("dd/MM/yyyy")
+                                                    .format(it)
+                                            }"
+                                        } ?: "Fecha inicio"
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = { mostrarDatePickerFin = true },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        fechaFin?.let {
+                                            "Fin: ${
+                                                java.text.SimpleDateFormat("dd/MM/yyyy")
+                                                    .format(it)
+                                            }"
+                                        } ?: "Fecha fin"
+                                    )
+                                }
                             }
                         }
                     }
@@ -438,97 +429,192 @@ fun DestinosScreen(
 
             // Si aún no se ha seleccionado destino → parar aquí
             if (destinoSeleccionado == null) {
-                return@Column
+                return@LazyColumn
             }
 
-            Spacer(Modifier.height(12.dp))
+            item {
+                Spacer(Modifier.height(12.dp))
+            }
 
             if (fechaInicio == null || fechaFin == null) {
-                Text(
-                    "Selecciona las fechas del viaje para continuar",
-                    modifier = Modifier.padding(16.dp),
-                    color = Color.Gray
-                )
-                return@Column
+                item {
+                    Text(
+                        "Selecciona las fechas del viaje para continuar",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color.Gray
+                    )
+                }
+                return@LazyColumn
             }
 
 
             // ⭐ ⭐ ⭐
             // 3️⃣ MOSTRAR TABS SOLO CUANDO YA HAY DESTINO
             // ⭐ ⭐ ⭐
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Text(
-                            "Actividades",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 12.sp // Ajusta el tamaño de la fuente
-                            ),
-                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = {
-                        Text(
-                            "Restaurantes",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 11.sp // Ajusta el tamaño de la fuente
-                            ),
-                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = {
-                        Text(
-                            "Transporte",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 12.sp // Ajusta el tamaño de la fuente
-                            ),
-                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 3, // Nueva pestaña
-                    onClick = { selectedTab = 3 },
-                    text = {
-                        Text(
-                            "Lugares Turísticos", // Nombre de la nueva pestaña
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 12.sp // Ajusta el tamaño de la fuente
-                            ),
-                            modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
-                        )
-                    }
-                )
+            item {
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = {
+                            Text(
+                                "Actividades",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 12.sp // Ajusta el tamaño de la fuente
+                                ),
+                                modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = {
+                            Text(
+                                "Restaurantes",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 11.sp // Ajusta el tamaño de la fuente
+                                ),
+                                modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = {
+                            Text(
+                                "Transporte",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 12.sp // Ajusta el tamaño de la fuente
+                                ),
+                                modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 3, // Nueva pestaña
+                        onClick = { selectedTab = 3 },
+                        text = {
+                            Text(
+                                "Lugares Turísticos", // Nombre de la nueva pestaña
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 12.sp // Ajusta el tamaño de la fuente
+                                ),
+                                modifier = Modifier.fillMaxWidth() // Asegura que el texto ocupe todo el espacio disponible
+                            )
+                        }
+                    )
+                }
             }
 
+            item {
+                Spacer(Modifier.height(16.dp))
+            }
 
-
-            Spacer(Modifier.height(16.dp))
-
-            when (selectedTab) {
-                0 -> ActividadesList(destinoSeleccionado!!.id, actividadDao, diasViaje = diasViaje)
-                1 -> RestaurantesList(
-                    destinoSeleccionado!!.id,
-                    restauranteDao,
-                    diasViaje = diasViaje
-                )
-
-                2 -> TransportesList(destinoSeleccionado!!.id, transporteDao, diasViaje = diasViaje)
-                3 -> LugaresTuristicosList(
-                    destinoSeleccionado!!.id,
-                    lugarTuristicoDao,
-                    diasViaje = diasViaje
-                )
+            item {
+                when (selectedTab) {
+                    0 -> {
+                        val actividades by actividadDao.getByDestino(destinoSeleccionado!!.id)
+                            .collectAsState(initial = emptyList())
+                        
+                        Column {
+                            actividades.forEach { actividad ->
+                                ActividadCardExpandable(
+                                    actividad = actividad,
+                                    diasViaje = diasViaje,
+                                    onAddToItinerary = { actividadEntity, dia ->
+                                        ItinerarioManager.addActividadToItinerary(
+                                            actividad = actividadEntity,
+                                            dia = dia,
+                                            diasViaje = diasViaje,
+                                            destinoId = destinoSeleccionado!!.id,
+                                            itinerarioDao = itinerarioDao,
+                                            itinerarioDiaDao = itinerarioDiaDao,
+                                            itinerarioDiaActividadDao = itinerarioDiaActividadDao,
+                                            scope = scope
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    1 -> {
+                        val restaurantes by restauranteDao.getByDestino(destinoSeleccionado!!.id)
+                            .collectAsState(initial = emptyList())
+                        
+                        Column {
+                            restaurantes.forEach { restaurante ->
+                                RestauranteCardExpandable(
+                                    restaurante = restaurante,
+                                    diasViaje = diasViaje,
+                                    onAddToItinerary = { restauranteEntity, dia ->
+                                        ItinerarioManager.addRestauranteToItinerary(
+                                            restaurante = restauranteEntity,
+                                            dia = dia,
+                                            diasViaje = diasViaje,
+                                            destinoId = destinoSeleccionado!!.id,
+                                            itinerarioDao = itinerarioDao,
+                                            itinerarioDiaDao = itinerarioDiaDao,
+                                            itinerarioDiaRestauranteDao = itinerarioDiaRestauranteDao,
+                                            scope = scope
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    2 -> {
+                        val transportes by transporteDao.getByDestino(destinoSeleccionado!!.id)
+                            .collectAsState(initial = emptyList())
+                        
+                        Column {
+                            transportes.forEach { transporte ->
+                                TransporteCardExpandable(
+                                    transporte = transporte,
+                                    diasViaje = diasViaje,
+                                    onAddToItinerary = { transporteEntity, dia ->
+                                        ItinerarioManager.addTransporteToItinerary(
+                                            transporte = transporteEntity,
+                                            dia = dia,
+                                            diasViaje = diasViaje,
+                                            destinoId = destinoSeleccionado!!.id,
+                                            itinerarioDao = itinerarioDao,
+                                            itinerarioDiaDao = itinerarioDiaDao,
+                                            itinerarioDiaTransporteDao = itinerarioDiaTransporteDao,
+                                            scope = scope
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    3 -> {
+                        val lugaresTuristicos by lugarTuristicoDao.getByDestino(destinoSeleccionado!!.id)
+                            .collectAsState(initial = emptyList())
+                        
+                        Column {
+                            lugaresTuristicos.forEach { lugar ->
+                                LugarTuristicoCardExpandable(
+                                    lugar = lugar,
+                                    diasViaje = diasViaje,
+                                    onAddToItinerary = { lugarEntity, dia ->
+                                        ItinerarioManager.addLugarTuristicoToItinerary(
+                                            lugar = lugarEntity,
+                                            dia = dia,
+                                            diasViaje = diasViaje,
+                                            destinoId = destinoSeleccionado!!.id,
+                                            itinerarioDao = itinerarioDao,
+                                            itinerarioDiaDao = itinerarioDiaDao,
+                                            itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
+                                            scope = scope
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -558,7 +644,8 @@ fun LugaresTuristicosList(
 @Composable
 fun LugarTuristicoCardExpandable(
     lugar: LugarTuristicoEntity,
-    diasViaje: List<LocalDate>
+    diasViaje: List<LocalDate>,
+    onAddToItinerary: (LugarTuristicoEntity, LocalDate) -> Unit = { _, _ -> }
 ) {
     var expanded by remember { mutableStateOf(false) }
     var mostrarDialogoDias by remember { mutableStateOf(false) }
@@ -621,16 +708,18 @@ fun LugarTuristicoCardExpandable(
     // Cuadro de diálogo para seleccionar el día
     if (mostrarDialogoDias) {
         AlertDialog(
-            onDismissRequest = { mostrarDialogoDias = false },
+            onDismissRequest = { 
+                mostrarDialogoDias = false
+                diaSeleccionado = null
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         diaSeleccionado?.let {
-                            // Aquí agregas el lugar turístico al itinerario
-                            // Puedes llamar a una función para agregarlo, por ejemplo:
-                            // onAddToItinerary(lugar, it)
+                            onAddToItinerary(lugar, it)
                             mostrarDialogoDias = false
                             expanded = false
+                            diaSeleccionado = null
                         }
                     },
                     enabled = diaSeleccionado != null
@@ -639,7 +728,10 @@ fun LugarTuristicoCardExpandable(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { mostrarDialogoDias = false }) {
+                TextButton(onClick = { 
+                    mostrarDialogoDias = false
+                    diaSeleccionado = null
+                }) {
                     Text("Cancelar")
                 }
             },
@@ -655,13 +747,17 @@ fun LugarTuristicoCardExpandable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { diaSeleccionado = dia }
+                                .clickable { 
+                                    diaSeleccionado = dia
+                                }
                                 .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = diaSeleccionado == dia,
-                                onClick = { diaSeleccionado = dia }
+                                onClick = { 
+                                    diaSeleccionado = dia
+                                }
                             )
                             Text(
                                 dia.toString(),
@@ -854,7 +950,10 @@ fun ActividadCardExpandable(
     // Cuadro de diálogo para seleccionar el día
     if (mostrarDialogoDias) {
         AlertDialog(
-            onDismissRequest = { mostrarDialogoDias = false },
+            onDismissRequest = { 
+                mostrarDialogoDias = false
+                diaSeleccionado = null
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -862,6 +961,7 @@ fun ActividadCardExpandable(
                             onAddToItinerary(actividad, it)
                             mostrarDialogoDias = false
                             expanded = false
+                            diaSeleccionado = null
                         }
                     },
                     enabled = diaSeleccionado != null
@@ -870,7 +970,10 @@ fun ActividadCardExpandable(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { mostrarDialogoDias = false }) {
+                TextButton(onClick = { 
+                    mostrarDialogoDias = false
+                    diaSeleccionado = null
+                }) {
                     Text("Cancelar")
                 }
             },
@@ -881,19 +984,21 @@ fun ActividadCardExpandable(
                     return@AlertDialog
                 }
 
-                // Mostrar los RadioButtons solo cuando se haya presionado el botón
                 Column {
                     diasViaje.forEach { dia ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { diaSeleccionado = dia }
-                                .padding(8.dp),
+                                .clickable { 
+                                    diaSeleccionado = dia
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = diaSeleccionado == dia,
-                                onClick = { diaSeleccionado = dia }
+                                onClick = { 
+                                    diaSeleccionado = dia
+                                }
                             )
                             Text(
                                 dia.toString(),
@@ -997,7 +1102,10 @@ fun RestauranteCardExpandable(
 
     if (mostrarDialogoDias) {
         AlertDialog(
-            onDismissRequest = { mostrarDialogoDias = false },
+            onDismissRequest = { 
+                mostrarDialogoDias = false
+                diaSeleccionado = null
+            },
             title = { Text("¿Qué día quieres añadirlo?") },
             text = {
                 if (diasViaje.isEmpty()) {
@@ -1010,13 +1118,17 @@ fun RestauranteCardExpandable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { diaSeleccionado = dia }
+                                .clickable { 
+                                    diaSeleccionado = dia
+                                }
                                 .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = diaSeleccionado == dia,
-                                onClick = { diaSeleccionado = dia }
+                                onClick = { 
+                                    diaSeleccionado = dia
+                                }
                             )
                             Text(
                                 dia.toString(),
@@ -1030,9 +1142,10 @@ fun RestauranteCardExpandable(
                 TextButton(
                     onClick = {
                         diaSeleccionado?.let {
-                            onAddToItinerary(restaurante, it) // o transporte
+                            onAddToItinerary(restaurante, it)
                             mostrarDialogoDias = false
                             expanded = false
+                            diaSeleccionado = null
                         }
                     },
                     enabled = diaSeleccionado != null
@@ -1041,7 +1154,10 @@ fun RestauranteCardExpandable(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { mostrarDialogoDias = false }) {
+                TextButton(onClick = { 
+                    mostrarDialogoDias = false
+                    diaSeleccionado = null
+                }) {
                     Text("Cancelar")
                 }
             }
@@ -1138,7 +1254,10 @@ fun TransporteCardExpandable(
 
     if (mostrarDialogoDias) {
         AlertDialog(
-            onDismissRequest = { mostrarDialogoDias = false },
+            onDismissRequest = { 
+                mostrarDialogoDias = false
+                diaSeleccionado = null
+            },
             title = { Text("¿Qué día quieres añadirlo?") },
             text = {
                 if (diasViaje.isEmpty()) {
@@ -1151,13 +1270,17 @@ fun TransporteCardExpandable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { diaSeleccionado = dia }
+                                .clickable { 
+                                    diaSeleccionado = dia
+                                }
                                 .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = diaSeleccionado == dia,
-                                onClick = { diaSeleccionado = dia }
+                                onClick = { 
+                                    diaSeleccionado = dia
+                                }
                             )
                             Text(
                                 dia.toString(),
@@ -1174,6 +1297,7 @@ fun TransporteCardExpandable(
                             onAddToItinerary(transporte, it)
                             mostrarDialogoDias = false
                             expanded = false
+                            diaSeleccionado = null
                         }
                     },
                     enabled = diaSeleccionado != null
@@ -1182,7 +1306,10 @@ fun TransporteCardExpandable(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { mostrarDialogoDias = false }) {
+                TextButton(onClick = { 
+                    mostrarDialogoDias = false
+                    diaSeleccionado = null
+                }) {
                     Text("Cancelar")
                 }
             }
