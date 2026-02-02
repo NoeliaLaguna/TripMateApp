@@ -41,6 +41,16 @@ fun Navegacion() {
     val context = LocalContext.current
     val database = DatabaseProvider.getDatabase(context)
     val destinoDao = database.destinoDao()
+    val actividadDao = database.actividadDao()
+    val restauranteDao = database.restauranteDao()
+    val transporteDao = database.transporteDao()
+    val lugarTuristicoDao = database.lugarTuristicoDao()
+    val itinerarioDao = database.itinerarioDao()
+    val itinerarioDiaDao = database.itinerarioDiaDao()
+    val itinerarioDiaActividadDao = database.itinerarioDiaActividadDao()
+    val itinerarioDiaRestauranteDao = database.itinerarioDiaRestauranteDao()
+    val itinerarioDiaTransporteDao = database.itinerarioDiaTransporteDao()
+    val itinerarioDiaLugarTuristicoDao = database.itinerarioDiaLugarTuristicoDao()
 
     NavHost(
         navController = navController,
@@ -79,10 +89,6 @@ fun Navegacion() {
         }
 
         // ---------------- DESTINOS ----------------
-        val actividadDao = database.actividadDao()
-        val restauranteDao = database.restauranteDao()
-        val transporteDao = database.transporteDao()
-        val lugarTuristicoDao = database.lugarTuristicoDao()
         composable(Rutas.DESTINOS) {
             DestinosScreen(
                 destinoDao = destinoDao,
