@@ -31,7 +31,7 @@ fun TripMateNavHost() {
         ) {
 
             composable(Navigation.Screen.Buscar.route) {
-                BuscarScreen()
+                BuscarScreen(navController)
             }
 
             composable(Navigation.Screen.MisViajes.route) {
