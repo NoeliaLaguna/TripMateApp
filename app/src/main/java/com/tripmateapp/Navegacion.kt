@@ -2,12 +2,20 @@ package com.tripmateapp
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.tripmateapp.BaseDatos.BarraNavegacion.ui.BottomBar
+import com.tripmateapp.BaseDatos.BarraNavegacion.ui.BuscarScreen
+import com.tripmateapp.BaseDatos.BarraNavegacion.ui.MisViajesScreen
+import com.tripmateapp.BaseDatos.BarraNavegacion.ui.SoporteScreen
 import com.tripmateapp.BaseDatos.DatabaseProvider
 import com.tripmateapp.ModificarDatosUsuario.ModificarDatosUsuarioScreen
 import com.tripmateapp.RegistroUsuario.RegistroScreen
@@ -52,10 +60,21 @@ fun Navegacion() {
     val itinerarioDiaTransporteDao = database.itinerarioDiaTransporteDao()
     val itinerarioDiaLugarTuristicoDao = database.itinerarioDiaLugarTuristicoDao()
 
-    NavHost(
-        navController = navController,
-        startDestination = Rutas.DESTINOS
-    ) {
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val shouldShowBottomBar = currentRoute != "login" && currentRoute != "registro"
+
+    Scaffold(
+        bottomBar = {
+            if (shouldShowBottomBar) {
+                BottomBar(navController)
+            }
+        }
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = Rutas.LOGIN,
+            modifier = Modifier.padding(padding)
+        ) {
 
         // ---------------- LOGIN ----------------
         composable(Rutas.LOGIN) {
@@ -66,8 +85,8 @@ fun Navegacion() {
                     }
                 },
                 onIrARegistro = {
-                    navController.navigate(Rutas.DESTINOS) {
-                        popUpTo(Rutas.REGISTRO) { inclusive = true }
+                    navController.navigate(Rutas.REGISTRO) {
+                        popUpTo(Rutas.LOGIN) { inclusive = true }
                     }                }
             )
         }
@@ -96,6 +115,12 @@ fun Navegacion() {
                 restauranteDao = restauranteDao,
                 transporteDao = transporteDao,
                 lugarTuristicoDao = lugarTuristicoDao,
+                itinerarioDao = itinerarioDao,
+                itinerarioDiaDao = itinerarioDiaDao,
+                itinerarioDiaActividadDao = itinerarioDiaActividadDao,
+                itinerarioDiaRestauranteDao = itinerarioDiaRestauranteDao,
+                itinerarioDiaTransporteDao = itinerarioDiaTransporteDao,
+                itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
                 onIrAModificarUsuario = {
                     navController.navigate(Rutas.MODIFICAR_USUARIO)
                 }
@@ -129,6 +154,20 @@ fun Navegacion() {
             )
         }
 
+        // ---------------- BOTTOM BAR NAVIGATION ----------------
+        composable("buscar") {
+            BuscarScreen(navController)
+        }
+
+        composable("mis_viajes") {
+            MisViajesScreen()
+        }
+
+        composable("soporte") {
+            SoporteScreen()
+        }
+
+        }
     }
 }
 
