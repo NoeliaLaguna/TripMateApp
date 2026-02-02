@@ -1,5 +1,7 @@
 package com.tripmateapp.BaseDatos.BarraNavegacion
 
+
+// Cambio 8
 class Navigation {
     sealed class Screen(val route: String, val label: String) {
 
@@ -9,5 +11,4 @@ class Navigation {
         object Soporte : Screen("soporte", "Soporte")
         //object Perfil : Screen("perfil", "Perfil")
     }
-
 }

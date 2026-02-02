@@ -16,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.tripmateapp.BaseDatos.BarraNavegacion.Navigation
 
 
+// Cambio 2
 @Composable
 fun BottomBar(navController: NavController) {
 

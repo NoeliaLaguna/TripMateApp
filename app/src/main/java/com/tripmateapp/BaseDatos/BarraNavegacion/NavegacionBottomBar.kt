@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import com.tripmateapp.BaseDatos.BarraNavegacion.ui.BottomBar
 
+
+//Cambio 7
 @Composable
 fun NavegacionBottomBar(
     navController: NavHostController,
