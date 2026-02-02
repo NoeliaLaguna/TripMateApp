@@ -1,5 +1,7 @@
 package com.tripmateapp
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,37 +13,27 @@ import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.LocalActivity
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.tripmateapp.model.ItineraryItem
-import com.tripmateapp.model.ItineraryType
-
-//ItineraryScreen(
-//    navController = navController,
-//    itineraryItems = itineraryItems,
-//    onRemoveItem = { item ->
-//        itineraryItems = itineraryItems.filterNot { it == item }
-//    },
-//    onClearItinerary = {
-//        itineraryItems = emptyList()
-//    }
-//)
+import com.tripmateapp.ItineraryViewModel
 
 // ------------------------------------------------------------------
-//                  PANTALLA DE ITINERARIO COMPLETA
+//                  PANTALLA DE ITINERARIO (VERSIÓN CORRECTA)
 // ------------------------------------------------------------------
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItineraryScreen(
     navController: NavController,
-    itineraryItems: List<ItineraryItem>,
-    onRemoveItem: (ItineraryItem) -> Unit,
-    onClearItinerary: () -> Unit
+    viewModel: ItineraryViewModel
 ) {
+
+    // 🔹 Escuchamos los datos desde el ViewModel
+    val itineraryItems by viewModel.items.collectAsState()
 
     val itemsAgrupadosPorDia = itineraryItems
         .sortedBy { it.date }
@@ -53,15 +45,12 @@ fun ItineraryScreen(
                 title = { Text("Itinerario del viaje") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Volver"
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 actions = {
                     if (itineraryItems.isNotEmpty()) {
-                        IconButton(onClick = onClearItinerary) {
+                        IconButton(onClick = { viewModel.clearItinerary() }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Vaciar itinerario",
@@ -75,8 +64,6 @@ fun ItineraryScreen(
     ) { innerPadding ->
 
         if (itineraryItems.isEmpty()) {
-
-            // 🟡 MENSAJE SI NO HAY NADA EN EL ITINERARIO
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -88,10 +75,7 @@ fun ItineraryScreen(
                     color = Color.Gray
                 )
             }
-
         } else {
-
-            // 🟢 LISTA DEL ITINERARIO
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -100,8 +84,6 @@ fun ItineraryScreen(
             ) {
 
                 itemsAgrupadosPorDia.forEach { (dia, itemsDelDia) ->
-
-                    // 📅 CABECERA DEL DÍA
                     item {
                         Text(
                             text = "📅 $dia",
@@ -110,12 +92,8 @@ fun ItineraryScreen(
                         )
                     }
 
-                    // 📌 ELEMENTOS DEL DÍA
                     items(itemsDelDia) { item ->
-                        ItineraryItemCard(
-                            item = item,
-                            onRemove = { onRemoveItem(item) }
-                        )
+                        ItineraryItemCard(item)
                     }
                 }
             }
@@ -124,13 +102,10 @@ fun ItineraryScreen(
 }
 
 // ------------------------------------------------------------------
-//                  TARJETA DE ELEMENTO DEL ITINERARIO
+//                  TARJETA DE ITEM
 // ------------------------------------------------------------------
 @Composable
-fun ItineraryItemCard(
-    item: ItineraryItem,
-    onRemove: () -> Unit
-) {
+fun ItineraryItemCard(item: ItineraryItem) {
 
     val icon = when (item.type) {
         ItineraryType.ACTIVIDAD -> Icons.Default.LocalActivity
@@ -145,7 +120,6 @@ fun ItineraryItemCard(
         shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -158,17 +132,13 @@ fun ItineraryItemCard(
                 modifier = Modifier.size(28.dp)
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(Modifier.width(12.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
+            Column {
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.titleMedium
                 )
-
                 item.subtitle?.let {
                     Text(
                         text = it,
@@ -176,24 +146,6 @@ fun ItineraryItemCard(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-
-                Text(
-                    text = when (item.type) {
-                        ItineraryType.ACTIVIDAD -> "Actividad"
-                        ItineraryType.RESTAURANTE -> "Restaurante"
-                        ItineraryType.TRANSPORTE -> "Transporte"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            IconButton(onClick = onRemove) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Eliminar",
-                    tint = Color.Red
-                )
             }
         }
     }
