@@ -140,27 +140,6 @@ fun DestinosScreen(
     }
 
 
-    if (fechaInicio != null && fechaFin != null) {
-        when (selectedTab) {
-            0 -> ActividadesList(
-                destinoSeleccionado!!.id,
-                actividadDao,
-                diasViaje
-            )
-
-            1 -> RestaurantesList(
-                destinoSeleccionado!!.id,
-                restauranteDao,
-                diasViaje
-            )
-
-            2 -> TransportesList(
-                destinoSeleccionado!!.id,
-                transporteDao,
-                diasViaje
-            )
-        }
-    }
 
 
 // --------------------
@@ -659,44 +638,6 @@ fun DestinosScreen(
 
 
                 Spacer(Modifier.height(16.dp))
-
-                when (selectedTab) {
-                    0 -> ActividadesList(
-                        destinoSeleccionado!!.id,
-                        actividadDao,
-                        diasViaje = diasViaje
-                    )
-
-                    1 -> RestaurantesList(
-                        destinoSeleccionado!!.id,
-                        restauranteDao,
-                        diasViaje = diasViaje
-                    )
-
-                    2 -> TransportesList(
-                        destinoSeleccionado!!.id,
-                        transporteDao,
-                        diasViaje = diasViaje
-                    )
-
-                    3 -> LugaresTuristicosList(
-                        destinoSeleccionado!!.id,
-                        lugarTuristicoDao,
-                        diasViaje = diasViaje,
-                        onAddToItinerary = { lugarEntity, dia ->
-                            ItinerarioManager.addLugarTuristicoToItinerary(
-                                lugar = lugarEntity,
-                                dia = dia,
-                                diasViaje = diasViaje,
-                                destinoId = destinoSeleccionado!!.id,
-                                itinerarioDao = itinerarioDao,
-                                itinerarioDiaDao = itinerarioDiaDao,
-                                itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
-                                scope = scope
-                            )
-                        }
-                    )
-                }
             }
         }
     }
