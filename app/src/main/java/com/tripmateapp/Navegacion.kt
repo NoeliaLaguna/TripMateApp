@@ -178,6 +178,8 @@ fun Navegacion() {
                     transporteDao = itinerarioDiaTransporteDao,
                     lugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
                     actividadEntityDao = actividadDao,
+                    restauranteEntityDao = restauranteDao,
+                    lugarTuristicoEntityDao = lugarTuristicoDao,
                     travelDates = travelDates
                 )
 

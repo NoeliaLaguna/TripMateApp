@@ -79,6 +79,8 @@ fun MisViajesScreen(navController: NavController) {
     val itinerarioDiaTransporteDao = database.itinerarioDiaTransporteDao()
     val itinerarioDiaLugarTuristicoDao = database.itinerarioDiaLugarTuristicoDao()
     val actividadEntityDao = database.actividadDao()
+    val restauranteEntityDao = database.restauranteDao()
+    val lugarTuristicoEntityDao = database.lugarTuristicoDao()
     
     val viewModel = ItineraryViewModel(
         viajeId = activeViajeId,
@@ -89,6 +91,8 @@ fun MisViajesScreen(navController: NavController) {
         transporteDao = itinerarioDiaTransporteDao,
         lugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
         actividadEntityDao = actividadEntityDao,
+        restauranteEntityDao = restauranteEntityDao,
+        lugarTuristicoEntityDao = lugarTuristicoEntityDao,
         travelDates = travelDates
     )
 

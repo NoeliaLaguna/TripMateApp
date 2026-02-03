@@ -22,6 +22,9 @@ interface RestauranteDao {
     @Query("SELECT * FROM restaurantes")
     suspend fun getAll(): List<RestauranteEntity>
 
+    @Query("SELECT * FROM restaurantes WHERE id = :id")
+    suspend fun getById(id: Int): RestauranteEntity?
+
     @Query("SELECT * FROM restaurantes WHERE destinoId = :destinoId")
      fun getByDestino(destinoId: Int): Flow<List<RestauranteEntity>>
 }

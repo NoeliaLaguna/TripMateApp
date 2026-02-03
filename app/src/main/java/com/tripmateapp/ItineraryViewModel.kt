@@ -11,6 +11,8 @@ import com.tripmateapp.BaseDatos.ItinerarioDiaRestaurantes.ItinerarioDiaRestaura
 import com.tripmateapp.BaseDatos.ItinerarioDiaTransportes.ItinerarioDiaTransporteDao
 import com.tripmateapp.BaseDatos.ItinerarioDiaLugaresTuristicos.ItinerarioDiaLugarTuristicoDao
 import com.tripmateapp.BaseDatos.actividades.ActividadDao
+import com.tripmateapp.BaseDatos.Restaurantes.RestauranteDao
+import com.tripmateapp.BaseDatos.LugaresTuristicos.LugarTuristicoDao
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -26,6 +28,8 @@ class ItineraryViewModel(
     private val transporteDao: ItinerarioDiaTransporteDao,
     private val lugarTuristicoDao: ItinerarioDiaLugarTuristicoDao,
     private val actividadEntityDao: ActividadDao,
+    private val restauranteEntityDao: RestauranteDao,
+    private val lugarTuristicoEntityDao: LugarTuristicoDao,
     private val travelDates: List<LocalDate> = emptyList()
 ) : ViewModel() {
 
@@ -81,11 +85,22 @@ class ItineraryViewModel(
                 }
 
                 restauranteDao.getByItinerarioDia(dia.id).forEach {
+                    val restauranteEntity = restauranteEntityDao.getById(it.idRestaurante)
                     resultado.add(
                         ItineraryItem(
                             id = it.idRestaurante,
-                            title = "Restaurante",
-                            subtitle = it.tipoComida,
+                            title = restauranteEntity?.nombre ?: "Restaurante",
+                            subtitle = buildString {
+                                val ubicacion = restauranteEntity?.ubicacion
+                                val tipo = restauranteEntity?.tipoComida ?: it.tipoComida
+                                if (!ubicacion.isNullOrBlank()) {
+                                    append(ubicacion)
+                                }
+                                if (!tipo.isNullOrBlank()) {
+                                    if (isNotEmpty()) append(" · ")
+                                    append(tipo)
+                                }
+                            },
                             date = fecha,
                             type = ItineraryType.RESTAURANTE
                         )
@@ -105,11 +120,23 @@ class ItineraryViewModel(
                 }
 
                 lugarTuristicoDao.getByItinerarioDia(dia.id).forEach {
+                    val lugarEntity = lugarTuristicoEntityDao.getById(it.idLugarTuristico)
                     resultado.add(
                         ItineraryItem(
                             id = it.idLugarTuristico,
-                            title = "Lugar Turístico",
-                            subtitle = it.horaVisita,
+                            title = lugarEntity?.nombre ?: "Lugar Turístico",
+                            subtitle = lugarEntity?.descripcion?.takeIf { desc -> desc.isNotBlank() }
+                                ?: buildString {
+                                    val ubicacion = lugarEntity?.ubicacion
+                                    val categoria = lugarEntity?.categoria
+                                    if (!ubicacion.isNullOrBlank()) {
+                                        append(ubicacion)
+                                    }
+                                    if (!categoria.isNullOrBlank()) {
+                                        if (isNotEmpty()) append(" · ")
+                                        append(categoria)
+                                    }
+                                },
                             date = fecha,
                             type = ItineraryType.LUGAR_TURISTICO
                         )
