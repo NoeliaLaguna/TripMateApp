@@ -10,15 +10,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.tripmateapp.BaseDatos.DatabaseProvider
 import com.tripmateapp.R
 import com.tripmateapp.utilidades.PreferenciasLogin
+import com.tripmateapp.utilidades.UserSessionManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +37,7 @@ fun InicioSesionScreen(
     val database = DatabaseProvider.getDatabase(context)
     val usuarioDao = database.usuarioDao()
     val preferenciasLogin = PreferenciasLogin(context)
+    val userSessionManager = UserSessionManager(context)
     val scope = rememberCoroutineScope()
 
     // ESTADO UI
@@ -40,6 +45,29 @@ fun InicioSesionScreen(
     var contrasena by remember { mutableStateOf("") }
     var recordar by remember { mutableStateOf(false) }
     var mensaje by remember { mutableStateOf("") }
+
+    // 🔹 Cargar datos guardados al iniciar la pantalla
+    LaunchedEffect(Unit) {
+        scope.launch {
+            preferenciasLogin.correo.collect { savedCorreo ->
+                if (savedCorreo.isNotEmpty()) {
+                    correo = savedCorreo
+                }
+            }
+        }
+        scope.launch {
+            preferenciasLogin.password.collect { savedPassword ->
+                if (savedPassword.isNotEmpty()) {
+                    contrasena = savedPassword
+                }
+            }
+        }
+        scope.launch {
+            preferenciasLogin.recordar.collect { savedRecordar ->
+                recordar = savedRecordar
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Color.White,
@@ -90,6 +118,8 @@ fun InicioSesionScreen(
                     value = correo,
                     onValueChange = { correo = it },
                     placeholder = { Text("Correo electrónico") },
+                    singleLine = true,
+                    maxLines = 1,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -101,6 +131,8 @@ fun InicioSesionScreen(
                     onValueChange = { contrasena = it },
                     placeholder = { Text("Contraseña") },
                     visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    maxLines = 1,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -151,6 +183,8 @@ fun InicioSesionScreen(
                                     } else {
                                         preferenciasLogin.borrarDatos()
                                     }
+
+                                    userSessionManager.setUserId(usuarioEncontrado.id)
 
                                     onLoginCorrecto()
                                 }

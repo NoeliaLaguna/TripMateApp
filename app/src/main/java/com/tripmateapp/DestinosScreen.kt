@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +51,18 @@ import com.tripmateapp.BaseDatos.ItinerarioDiaActividades.ItinerarioDiaActividad
 import com.tripmateapp.BaseDatos.ItinerarioDiaRestaurantes.ItinerarioDiaRestauranteDao
 import com.tripmateapp.BaseDatos.ItinerarioDiaTransportes.ItinerarioDiaTransporteDao
 import com.tripmateapp.BaseDatos.ItinerarioDiaLugaresTuristicos.ItinerarioDiaLugarTuristicoDao
+import com.tripmateapp.BaseDatos.Viajes.ViajeDao
+import com.tripmateapp.BaseDatos.Viajes.ViajeEntity
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.tripmateapp.utilidades.TravelDatesManager
+import com.tripmateapp.utilidades.SelectedDestinationManager
+import com.tripmateapp.utilidades.ActiveTripManager
+import com.tripmateapp.utilidades.UserSessionManager
+import kotlinx.coroutines.launch
 import java.text.Normalizer
 
 import java.time.Instant
@@ -98,6 +110,7 @@ fun DestinosScreen(
     restauranteDao: RestauranteDao,
     transporteDao: TransporteDao,
     lugarTuristicoDao: LugarTuristicoDao,
+    viajeDao: ViajeDao,
     itinerarioDao: ItinerarioDao,
     itinerarioDiaDao: ItinerarioDiaDao,
     itinerarioDiaActividadDao: ItinerarioDiaActividadDao,
@@ -107,20 +120,38 @@ fun DestinosScreen(
     onIrAModificarUsuario: () -> Unit,
     onCerrarSesionClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var query by remember { mutableStateOf("") }
+    val travelDatesManager = TravelDatesManager(context)
+    val selectedDestinationManager = SelectedDestinationManager(context)
+    val activeTripManager = ActiveTripManager(context)
+    val userSessionManager = UserSessionManager(context)
+    var query by rememberSaveable { mutableStateOf("") }
 
     val destinos by destinoDao.getAllFlow().collectAsState(initial = emptyList())
 
-    var destinoSeleccionado by remember { mutableStateOf<DestinoEntity?>(null) }
+    var destinoSeleccionadoId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val destinoSeleccionado = destinoSeleccionadoId?.let { id ->
+        destinos.find { it.id == id }
+    }
+    
+    // Save selected destination ID whenever it changes
+    LaunchedEffect(destinoSeleccionadoId) {
+        destinoSeleccionadoId?.let { id ->
+            selectedDestinationManager.saveSelectedDestination(id)
+        }
+    }
 
     var opcionesFiltrado by remember { mutableStateOf<List<DestinoEntity>>(emptyList()) }
-
-    var mostrarSelectorCiudades by remember { mutableStateOf(false) }
+    var mostrarSelectorCiudades by rememberSaveable { mutableStateOf(false) }
+    
+    // Save filtered destination IDs to restore search results
+    var filteredDestinationIds by rememberSaveable { mutableStateOf<List<Int>>(emptyList()) }
+    var searchWasExecuted by rememberSaveable { mutableStateOf(false) }
 
     // FECHAS DEL VIAJE
-    var fechaInicio by remember { mutableStateOf<Long?>(null) }
-    var fechaFin by remember { mutableStateOf<Long?>(null) }
+    var fechaInicio by rememberSaveable { mutableStateOf<Long?>(null) }
+    var fechaFin by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var mostrarDatePickerInicio by remember { mutableStateOf(false) }
     var mostrarDatePickerFin by remember { mutableStateOf(false) }
@@ -129,7 +160,7 @@ fun DestinosScreen(
 
 
     // Tabs seleccionadas
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     val diasViaje = remember(fechaInicio, fechaFin) {
         if (fechaInicio != null && fechaFin != null) {
@@ -139,26 +170,132 @@ fun DestinosScreen(
         }
     }
 
+    fun saveNewTripForCurrentSelection() {
+        val usuarioId = userSessionManager.getUserId()
+        val destinoId = destinoSeleccionadoId
+        val inicio = fechaInicio
+        val fin = fechaFin
+        if (usuarioId <= 0 || destinoId == null || inicio == null || fin == null) return
 
-    if (fechaInicio != null && fechaFin != null) {
-        when (selectedTab) {
-            0 -> ActividadesList(
-                destinoSeleccionado!!.id,
-                actividadDao,
-                diasViaje
-            )
+        scope.launch {
+            val fechaInicioStr = Instant.ofEpochMilli(inicio)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .toString()
+            val fechaFinStr = Instant.ofEpochMilli(fin)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .toString()
 
-            1 -> RestaurantesList(
-                destinoSeleccionado!!.id,
-                restauranteDao,
-                diasViaje
+            val newViaje = ViajeEntity(
+                nombre = "",
+                usuarioId = usuarioId,
+                destinoId = destinoId,
+                fechaInicio = fechaInicioStr,
+                fechaFin = fechaFinStr,
+                presupuesto = null
             )
+            val newId = viajeDao.insert(newViaje).toInt()
+            activeTripManager.setActiveViajeId(newId)
+        }
+    }
 
-            2 -> TransportesList(
-                destinoSeleccionado!!.id,
-                transporteDao,
-                diasViaje
-            )
+    suspend fun ensureActiveTripId(): Int {
+        val existing = activeTripManager.getActiveViajeId()
+        if (existing != 0) return existing
+
+        val usuarioId = userSessionManager.getUserId()
+        val destinoId = destinoSeleccionadoId
+        val inicio = fechaInicio
+        val fin = fechaFin
+        if (usuarioId <= 0 || destinoId == null || inicio == null || fin == null) return 0
+
+        val fechaInicioStr = Instant.ofEpochMilli(inicio)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .toString()
+        val fechaFinStr = Instant.ofEpochMilli(fin)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .toString()
+
+        val newViaje = ViajeEntity(
+            nombre = "",
+            usuarioId = usuarioId,
+            destinoId = destinoId,
+            fechaInicio = fechaInicioStr,
+            fechaFin = fechaFinStr,
+            presupuesto = null
+        )
+        val newId = viajeDao.insert(newViaje).toInt()
+        activeTripManager.setActiveViajeId(newId)
+        return newId
+    }
+
+    // 🔹 Restore filtered destinations when destinations load
+    LaunchedEffect(destinos) {
+        if (searchWasExecuted && filteredDestinationIds.isNotEmpty()) {
+            opcionesFiltrado = destinos.filter { it.id in filteredDestinationIds }
+        }
+    }
+
+    // 🔹 Function to re-run search logic
+    fun reRunSearch() {
+        if (query.isNotEmpty()) {
+            val queryNorm = query.normalize()
+            
+            val ciudades = destinos.filter { d ->
+                d.nombre.normalize().contains(queryNorm)
+            }
+
+            destinoSeleccionadoId = when {
+                ciudades.size == 1 -> ciudades.first().id
+                ciudades.size > 1 -> {
+                    opcionesFiltrado = ciudades
+                    filteredDestinationIds = ciudades.map { it.id }
+                    searchWasExecuted = true
+                    null
+                }
+                else -> {
+                    val paises = destinos.filter { d ->
+                        d.pais.normalize().contains(queryNorm)
+                    }
+                    
+                    when {
+                        paises.size == 1 -> paises.first().id
+                        paises.size > 1 -> {
+                            opcionesFiltrado = paises
+                            filteredDestinationIds = paises.map { it.id }
+                            searchWasExecuted = true
+                            null
+                        }
+                        else -> {
+                            filteredDestinationIds = emptyList()
+                            searchWasExecuted = true
+                            null
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 🔹 Re-run search when screen regains focus and also restore from saved state
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // First restore from saved state if needed
+                if (searchWasExecuted && filteredDestinationIds.isNotEmpty()) {
+                    opcionesFiltrado = destinos.filter { it.id in filteredDestinationIds }
+                }
+                // Then re-run search to ensure everything is up to date
+                reRunSearch()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -186,6 +323,10 @@ fun DestinosScreen(
             confirmButton = {
                 TextButton(onClick = {
                     fechaInicio = datePickerState.selectedDateMillis
+                    travelDatesManager.saveTravelDates(fechaInicio, fechaFin)
+                    if (destinoSeleccionadoId != null && fechaInicio != null && fechaFin != null) {
+                        saveNewTripForCurrentSelection()
+                    }
                     mostrarDatePickerInicio = false
                 }) { Text("Aceptar") }
             }
@@ -221,6 +362,10 @@ fun DestinosScreen(
             confirmButton = {
                 TextButton(onClick = {
                     fechaFin = datePickerState.selectedDateMillis
+                    travelDatesManager.saveTravelDates(fechaInicio, fechaFin)
+                    if (destinoSeleccionadoId != null && fechaInicio != null && fechaFin != null) {
+                        saveNewTripForCurrentSelection()
+                    }
                     mostrarDatePickerFin = false
                 }) { Text("Aceptar") }
             }
@@ -253,10 +398,12 @@ fun DestinosScreen(
                     d.nombre.normalize().contains(queryNorm)
                 }
 
-                destinoSeleccionado = when {
-                    ciudades.size == 1 -> ciudades.first()
+                destinoSeleccionadoId = when {
+                    ciudades.size == 1 -> ciudades.first().id
                     ciudades.size > 1 -> {
                         opcionesFiltrado = ciudades
+                        filteredDestinationIds = ciudades.map { it.id }
+                        searchWasExecuted = true
                         null
                     }
 
@@ -266,13 +413,19 @@ fun DestinosScreen(
                         }
 
                         when {
-                            paises.size == 1 -> paises.first()
+                            paises.size == 1 -> paises.first().id
                             paises.size > 1 -> {
                                 opcionesFiltrado = paises
+                                filteredDestinationIds = paises.map { it.id }
+                                searchWasExecuted = true
                                 null
                             }
 
-                            else -> null
+                            else -> {
+                                filteredDestinationIds = emptyList()
+                                searchWasExecuted = true
+                                null
+                            }
                         }
                     }
                 }
@@ -303,7 +456,7 @@ fun DestinosScreen(
                             .fillMaxWidth()
                             .padding(8.dp)
                             .clickable {
-                                destinoSeleccionado = destino
+                                destinoSeleccionadoId = destino.id
                                 opcionesFiltrado = emptyList()
                             },
                         elevation = CardDefaults.cardElevation(4.dp),
@@ -383,7 +536,7 @@ fun DestinosScreen(
                                                     .fillMaxWidth()
                                                     .padding(6.dp)
                                                     .clickable {
-                                                        destinoSeleccionado = ciudad
+                                                        destinoSeleccionadoId = ciudad.id
                                                         mostrarSelectorCiudades = false
                                                     },
                                                 shape = RoundedCornerShape(10.dp),
@@ -562,16 +715,21 @@ fun DestinosScreen(
                                     actividad = actividad,
                                     diasViaje = diasViaje,
                                     onAddToItinerary = { actividadEntity, dia ->
-                                        ItinerarioManager.addActividadToItinerary(
-                                            actividad = actividadEntity,
-                                            dia = dia,
-                                            diasViaje = diasViaje,
-                                            destinoId = destinoSeleccionado!!.id,
-                                            itinerarioDao = itinerarioDao,
-                                            itinerarioDiaDao = itinerarioDiaDao,
-                                            itinerarioDiaActividadDao = itinerarioDiaActividadDao,
-                                            scope = scope
-                                        )
+                                        scope.launch {
+                                            val viajeId = ensureActiveTripId()
+                                            if (viajeId != 0) {
+                                                ItinerarioManager.addActividadToItinerary(
+                                                    actividad = actividadEntity,
+                                                    dia = dia,
+                                                    diasViaje = diasViaje,
+                                                    viajeId = viajeId,
+                                                    itinerarioDao = itinerarioDao,
+                                                    itinerarioDiaDao = itinerarioDiaDao,
+                                                    itinerarioDiaActividadDao = itinerarioDiaActividadDao,
+                                                    scope = scope
+                                                )
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -588,16 +746,21 @@ fun DestinosScreen(
                                     restaurante = restaurante,
                                     diasViaje = diasViaje,
                                     onAddToItinerary = { restauranteEntity, dia ->
-                                        ItinerarioManager.addRestauranteToItinerary(
-                                            restaurante = restauranteEntity,
-                                            dia = dia,
-                                            diasViaje = diasViaje,
-                                            destinoId = destinoSeleccionado!!.id,
-                                            itinerarioDao = itinerarioDao,
-                                            itinerarioDiaDao = itinerarioDiaDao,
-                                            itinerarioDiaRestauranteDao = itinerarioDiaRestauranteDao,
-                                            scope = scope
-                                        )
+                                        scope.launch {
+                                            val viajeId = ensureActiveTripId()
+                                            if (viajeId != 0) {
+                                                ItinerarioManager.addRestauranteToItinerary(
+                                                    restaurante = restauranteEntity,
+                                                    dia = dia,
+                                                    diasViaje = diasViaje,
+                                                    viajeId = viajeId,
+                                                    itinerarioDao = itinerarioDao,
+                                                    itinerarioDiaDao = itinerarioDiaDao,
+                                                    itinerarioDiaRestauranteDao = itinerarioDiaRestauranteDao,
+                                                    scope = scope
+                                                )
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -614,16 +777,21 @@ fun DestinosScreen(
                                     transporte = transporte,
                                     diasViaje = diasViaje,
                                     onAddToItinerary = { transporteEntity, dia ->
-                                        ItinerarioManager.addTransporteToItinerary(
-                                            transporte = transporteEntity,
-                                            dia = dia,
-                                            diasViaje = diasViaje,
-                                            destinoId = destinoSeleccionado!!.id,
-                                            itinerarioDao = itinerarioDao,
-                                            itinerarioDiaDao = itinerarioDiaDao,
-                                            itinerarioDiaTransporteDao = itinerarioDiaTransporteDao,
-                                            scope = scope
-                                        )
+                                        scope.launch {
+                                            val viajeId = ensureActiveTripId()
+                                            if (viajeId != 0) {
+                                                ItinerarioManager.addTransporteToItinerary(
+                                                    transporte = transporteEntity,
+                                                    dia = dia,
+                                                    diasViaje = diasViaje,
+                                                    viajeId = viajeId,
+                                                    itinerarioDao = itinerarioDao,
+                                                    itinerarioDiaDao = itinerarioDiaDao,
+                                                    itinerarioDiaTransporteDao = itinerarioDiaTransporteDao,
+                                                    scope = scope
+                                                )
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -640,16 +808,21 @@ fun DestinosScreen(
                                     lugar = lugar,
                                     diasViaje = diasViaje,
                                     onAddToItinerary = { lugarEntity, dia ->
-                                        ItinerarioManager.addLugarTuristicoToItinerary(
-                                            lugar = lugarEntity,
-                                            dia = dia,
-                                            diasViaje = diasViaje,
-                                            destinoId = destinoSeleccionado!!.id,
-                                            itinerarioDao = itinerarioDao,
-                                            itinerarioDiaDao = itinerarioDiaDao,
-                                            itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
-                                            scope = scope
-                                        )
+                                        scope.launch {
+                                            val viajeId = ensureActiveTripId()
+                                            if (viajeId != 0) {
+                                                ItinerarioManager.addLugarTuristicoToItinerary(
+                                                    lugar = lugarEntity,
+                                                    dia = dia,
+                                                    diasViaje = diasViaje,
+                                                    viajeId = viajeId,
+                                                    itinerarioDao = itinerarioDao,
+                                                    itinerarioDiaDao = itinerarioDiaDao,
+                                                    itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
+                                                    scope = scope
+                                                )
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -684,16 +857,21 @@ fun DestinosScreen(
                         lugarTuristicoDao,
                         diasViaje = diasViaje,
                         onAddToItinerary = { lugarEntity, dia ->
-                            ItinerarioManager.addLugarTuristicoToItinerary(
-                                lugar = lugarEntity,
-                                dia = dia,
-                                diasViaje = diasViaje,
-                                destinoId = destinoSeleccionado!!.id,
-                                itinerarioDao = itinerarioDao,
-                                itinerarioDiaDao = itinerarioDiaDao,
-                                itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
-                                scope = scope
-                            )
+                            scope.launch {
+                                val viajeId = ensureActiveTripId()
+                                if (viajeId != 0) {
+                                    ItinerarioManager.addLugarTuristicoToItinerary(
+                                        lugar = lugarEntity,
+                                        dia = dia,
+                                        diasViaje = diasViaje,
+                                        viajeId = viajeId,
+                                        itinerarioDao = itinerarioDao,
+                                        itinerarioDiaDao = itinerarioDiaDao,
+                                        itinerarioDiaLugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
+                                        scope = scope
+                                    )
+                                }
+                            }
                         }
                     )
                 }

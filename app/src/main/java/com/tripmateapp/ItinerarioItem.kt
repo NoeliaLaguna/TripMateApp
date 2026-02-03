@@ -6,7 +6,8 @@ import java.time.LocalDate
 enum class ItineraryType {
     ACTIVIDAD,
     RESTAURANTE,
-    TRANSPORTE
+    TRANSPORTE,
+    LUGAR_TURISTICO
 }
 
 data class ItineraryItem(

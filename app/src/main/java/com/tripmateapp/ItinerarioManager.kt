@@ -30,7 +30,7 @@ object ItinerarioManager {
         actividad: ActividadEntity,
         dia: LocalDate,
         diasViaje: List<LocalDate>,
-        destinoId: Int,
+        viajeId: Int,
         itinerarioDao: ItinerarioDao,
         itinerarioDiaDao: ItinerarioDiaDao,
         itinerarioDiaActividadDao: ItinerarioDiaActividadDao,
@@ -38,23 +38,27 @@ object ItinerarioManager {
     ) {
         scope.launch(Dispatchers.IO) {
             try {
+                println("DEBUG: Adding actividad ${actividad.id} to viajeId $viajeId for day $dia")
+                
                 // 1. Obtener o crear el itinerario para este destino
-                val itinerarios = itinerarioDao.getByViaje(destinoId)
+                val itinerarios = itinerarioDao.getByViaje(viajeId)
                 val itinerario = if (itinerarios.isEmpty()) {
                     val nuevoItinerario = ItinerarioEntity(
-                        idViaje = destinoId,
-                        nombre = "Itinerario $destinoId",
+                        idViaje = viajeId,
+                        nombre = "Itinerario $viajeId",
                         fecha = LocalDate.now().toString()
                     )
-                    itinerarioDao.insert(nuevoItinerario)
-                    nuevoItinerario
+                    val insertedId = itinerarioDao.insert(nuevoItinerario)
+                    println("DEBUG: Created new itinerario with ID $insertedId")
+                    nuevoItinerario.copy(id = insertedId.toInt())
                 } else {
+                    println("DEBUG: Using existing itinerario with ID ${itinerarios.first().id}")
                     itinerarios.first()
                 }
 
                 // 2. Obtener o crear el día del itinerario
                 val diaIndex = diasViaje.indexOf(dia)
-                val itinerarioDiaId = itinerario.id + diaIndex + 1000
+                val itinerarioDiaId = (itinerario.id * 1000) + diaIndex + 1
                 
                 // Verificar si el día ya existe
                 var itinerarioDia = itinerarioDiaDao.getById(itinerarioDiaId)
@@ -67,6 +71,9 @@ object ItinerarioManager {
                         horaFin = "23:59"
                     )
                     itinerarioDiaDao.insert(itinerarioDia)
+                    println("DEBUG: Created new itinerarioDia with ID $itinerarioDiaId")
+                } else {
+                    println("DEBUG: Using existing itinerarioDia with ID ${itinerarioDia.id}")
                 }
 
                 // 3. Añadir la actividad al día del itinerario
@@ -76,9 +83,11 @@ object ItinerarioManager {
                     orden = actividad.orden,
                     horaInicio = actividad.horaInicio
                 )
-                itinerarioDiaActividadDao.insert(itinerarioActividad)
+                val insertedActivityId = itinerarioDiaActividadDao.insert(itinerarioActividad)
+                println("DEBUG: Added actividad to itinerario with ID $insertedActivityId")
                 
             } catch (e: Exception) {
+                println("DEBUG: Error adding actividad to itinerary: ${e.message}")
                 e.printStackTrace()
             }
         }
@@ -88,7 +97,7 @@ object ItinerarioManager {
         restaurante: RestauranteEntity,
         dia: LocalDate,
         diasViaje: List<LocalDate>,
-        destinoId: Int,
+        viajeId: Int,
         itinerarioDao: ItinerarioDao,
         itinerarioDiaDao: ItinerarioDiaDao,
         itinerarioDiaRestauranteDao: ItinerarioDiaRestauranteDao,
@@ -97,22 +106,22 @@ object ItinerarioManager {
         scope.launch(Dispatchers.IO) {
             try {
                 // 1. Obtener o crear el itinerario
-                val itinerarios = itinerarioDao.getByViaje(destinoId)
+                val itinerarios = itinerarioDao.getByViaje(viajeId)
                 val itinerario = if (itinerarios.isEmpty()) {
                     val nuevoItinerario = ItinerarioEntity(
-                        idViaje = destinoId,
-                        nombre = "Itinerario $destinoId",
+                        idViaje = viajeId,
+                        nombre = "Itinerario $viajeId",
                         fecha = LocalDate.now().toString()
                     )
-                    itinerarioDao.insert(nuevoItinerario)
-                    nuevoItinerario
+                    val insertedId = itinerarioDao.insert(nuevoItinerario)
+                    nuevoItinerario.copy(id = insertedId.toInt())
                 } else {
                     itinerarios.first()
                 }
 
                 // 2. Obtener o crear el día del itinerario
                 val diaIndex = diasViaje.indexOf(dia)
-                val itinerarioDiaId = itinerario.id + diaIndex + 1000
+                val itinerarioDiaId = (itinerario.id * 1000) + diaIndex + 1
                 
                 var itinerarioDia = itinerarioDiaDao.getById(itinerarioDiaId)
                 if (itinerarioDia == null) {
@@ -144,7 +153,7 @@ object ItinerarioManager {
         transporte: TransporteEntity,
         dia: LocalDate,
         diasViaje: List<LocalDate>,
-        destinoId: Int,
+        viajeId: Int,
         itinerarioDao: ItinerarioDao,
         itinerarioDiaDao: ItinerarioDiaDao,
         itinerarioDiaTransporteDao: ItinerarioDiaTransporteDao,
@@ -153,22 +162,22 @@ object ItinerarioManager {
         scope.launch(Dispatchers.IO) {
             try {
                 // 1. Obtener o crear el itinerario
-                val itinerarios = itinerarioDao.getByViaje(destinoId)
+                val itinerarios = itinerarioDao.getByViaje(viajeId)
                 val itinerario = if (itinerarios.isEmpty()) {
                     val nuevoItinerario = ItinerarioEntity(
-                        idViaje = destinoId,
-                        nombre = "Itinerario $destinoId",
+                        idViaje = viajeId,
+                        nombre = "Itinerario $viajeId",
                         fecha = LocalDate.now().toString()
                     )
-                    itinerarioDao.insert(nuevoItinerario)
-                    nuevoItinerario
+                    val insertedId = itinerarioDao.insert(nuevoItinerario)
+                    nuevoItinerario.copy(id = insertedId.toInt())
                 } else {
                     itinerarios.first()
                 }
 
                 // 2. Obtener o crear el día del itinerario
                 val diaIndex = diasViaje.indexOf(dia)
-                val itinerarioDiaId = itinerario.id + diaIndex + 1000
+                val itinerarioDiaId = (itinerario.id * 1000) + diaIndex + 1
                 
                 var itinerarioDia = itinerarioDiaDao.getById(itinerarioDiaId)
                 if (itinerarioDia == null) {
@@ -200,7 +209,7 @@ object ItinerarioManager {
         lugar: LugarTuristicoEntity,
         dia: LocalDate,
         diasViaje: List<LocalDate>,
-        destinoId: Int,
+        viajeId: Int,
         itinerarioDao: ItinerarioDao,
         itinerarioDiaDao: ItinerarioDiaDao,
         itinerarioDiaLugarTuristicoDao: ItinerarioDiaLugarTuristicoDao,
@@ -209,22 +218,22 @@ object ItinerarioManager {
         scope.launch(Dispatchers.IO) {
             try {
                 // 1. Obtener o crear el itinerario
-                val itinerarios = itinerarioDao.getByViaje(destinoId)
+                val itinerarios = itinerarioDao.getByViaje(viajeId)
                 val itinerario = if (itinerarios.isEmpty()) {
                     val nuevoItinerario = ItinerarioEntity(
-                        idViaje = destinoId,
-                        nombre = "Itinerario $destinoId",
+                        idViaje = viajeId,
+                        nombre = "Itinerario $viajeId",
                         fecha = LocalDate.now().toString()
                     )
-                    itinerarioDao.insert(nuevoItinerario)
-                    nuevoItinerario
+                    val insertedId = itinerarioDao.insert(nuevoItinerario)
+                    nuevoItinerario.copy(id = insertedId.toInt())
                 } else {
                     itinerarios.first()
                 }
 
                 // 2. Obtener o crear el día del itinerario
                 val diaIndex = diasViaje.indexOf(dia)
-                val itinerarioDiaId = itinerario.id + diaIndex + 1000
+                val itinerarioDiaId = (itinerario.id * 1000) + diaIndex + 1
                 
                 var itinerarioDia = itinerarioDiaDao.getById(itinerarioDiaId)
                 if (itinerarioDia == null) {

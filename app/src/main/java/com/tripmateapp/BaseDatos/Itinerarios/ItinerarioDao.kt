@@ -6,7 +6,7 @@ import androidx.room.*
 interface ItinerarioDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(itinerario: ItinerarioEntity)
+    suspend fun insert(itinerario: ItinerarioEntity): Long
 
     @Update
     suspend fun update(itinerario: ItinerarioEntity)

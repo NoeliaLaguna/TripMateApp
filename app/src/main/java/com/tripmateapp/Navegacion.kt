@@ -22,6 +22,10 @@ import com.tripmateapp.BaseDatos.DatabaseProvider
 import com.tripmateapp.ModificarDatosUsuario.ModificarDatosUsuarioScreen
 import com.tripmateapp.RegistroUsuario.RegistroScreen
 import com.tripmateapp.inicioSesion.InicioSesionScreen
+import com.tripmateapp.utilidades.ActiveTripManager
+import com.tripmateapp.utilidades.SelectedDestinationManager
+import com.tripmateapp.utilidades.TravelDatesManager
+import com.tripmateapp.utilidades.UserSessionManager
 
 // ------------------------------
 // RUTAS DE LA APP
@@ -34,7 +38,7 @@ object Rutas {
     const val MODIFICAR_USUARIO = "modificarUsuario"
 
     // ✅ RUTA DEL ITINERARIO
-    const val ITINERARIO = "itinerario/{destinoId}"
+    const val ITINERARIO = "itinerario/{viajeId}"
 
     fun crearViaje(destinoId: Int) = "crearViaje/$destinoId"
 }
@@ -58,6 +62,8 @@ fun Navegacion() {
     val restauranteDao = database.restauranteDao()
     val transporteDao = database.transporteDao()
     val lugarTuristicoDao = database.lugarTuristicoDao()
+
+    val viajeDao = database.viajeDao()
 
     val itinerarioDao = database.itinerarioDao()
     val itinerarioDiaDao = database.itinerarioDiaDao()
@@ -127,6 +133,7 @@ fun Navegacion() {
                     restauranteDao = restauranteDao,
                     transporteDao = transporteDao,
                     lugarTuristicoDao = lugarTuristicoDao,
+                    viajeDao = viajeDao,
                     itinerarioDao = itinerarioDao,
                     itinerarioDiaDao = itinerarioDiaDao,
                     itinerarioDiaActividadDao = itinerarioDiaActividadDao,
@@ -148,25 +155,40 @@ fun Navegacion() {
             composable(
                 route = Rutas.ITINERARIO,
                 arguments = listOf(
-                    navArgument("destinoId") { type = NavType.IntType }
+                    navArgument("viajeId") { type = NavType.IntType }
                 )
             ) { backStackEntry ->
 
-                val destinoId =
-                    backStackEntry.arguments?.getInt("destinoId") ?: return@composable
+                val viajeId =
+                    backStackEntry.arguments?.getInt("viajeId") ?: return@composable
+
+                val travelDatesManager = TravelDatesManager(context)
+                val travelDates = travelDatesManager.getTravelDates()
+
+                val activeTripManager = ActiveTripManager(context)
+                val selectedDestinationManager = SelectedDestinationManager(context)
+                val userSessionManager = UserSessionManager(context)
 
                 val viewModel = ItineraryViewModel(
-                    destinoId = destinoId,
+                    viajeId = viajeId,
                     itinerarioDao = itinerarioDao,
                     itinerarioDiaDao = itinerarioDiaDao,
                     actividadDao = itinerarioDiaActividadDao,
                     restauranteDao = itinerarioDiaRestauranteDao,
-                    transporteDao = itinerarioDiaTransporteDao
+                    transporteDao = itinerarioDiaTransporteDao,
+                    lugarTuristicoDao = itinerarioDiaLugarTuristicoDao,
+                    actividadEntityDao = actividadDao,
+                    travelDates = travelDates
                 )
 
                 ItineraryScreen(
                     navController = navController,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    viajeDao = viajeDao,
+                    activeTripManager = activeTripManager,
+                    selectedDestinationManager = selectedDestinationManager,
+                    travelDatesManager = travelDatesManager,
+                    userSessionManager = userSessionManager
                 )
             }
 
@@ -192,7 +214,7 @@ fun Navegacion() {
 
             // ---------------- BOTTOM BAR ----------------
             composable("buscar") { BuscarScreen(navController) }
-            composable("mis_viajes") { MisViajesScreen() }
+            composable("mis_viajes") { MisViajesScreen(navController) }
             composable("soporte") { SoporteScreen() }
         }
     }
